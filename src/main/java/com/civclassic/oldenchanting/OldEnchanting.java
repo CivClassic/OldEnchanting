@@ -9,8 +9,8 @@ import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.block.Block;
 import org.bukkit.configuration.ConfigurationSection;
-import org.bukkit.craftbukkit.v1_10_R1.inventory.CraftInventoryView;
-import org.bukkit.craftbukkit.v1_10_R1.inventory.CraftItemStack;
+import org.bukkit.craftbukkit.v1_12_R1.inventory.CraftInventoryView;
+import org.bukkit.craftbukkit.v1_12_R1.inventory.CraftItemStack;
 import org.bukkit.enchantments.Enchantment;
 import org.bukkit.entity.EntityType;
 import org.bukkit.entity.LivingEntity;
@@ -48,7 +48,7 @@ import com.comphenix.protocol.events.PacketContainer;
 import com.comphenix.protocol.events.PacketEvent;
 
 import net.md_5.bungee.api.ChatColor;
-import net.minecraft.server.v1_10_R1.ContainerEnchantTable;
+import net.minecraft.server.v1_12_R1.ContainerEnchantTable;
 import vg.civcraft.mc.civmodcore.itemHandling.ItemMap;
 
 public class OldEnchanting extends JavaPlugin implements Listener {
@@ -217,15 +217,20 @@ public class OldEnchanting extends JavaPlugin implements Listener {
 	@EventHandler
 	public void onPrepareAnvil(PrepareAnvilEvent event) {
 		if(!infiniteEnchant) return;
+		if(event.getInventory().getRepairCost() > 39) {
+			event.getInventory().setRepairCost(39);
+		}
+		/* Legacy code from 1.10
 		ItemStack result = event.getResult();
 		if(result != null && result.getType() != Material.AIR) {
-			net.minecraft.server.v1_10_R1.ItemStack is = CraftItemStack.asNMSCopy(result);
+			net.minecraft.server.v1_12_R1.ItemStack is = CraftItemStack.asNMSCopy(result);
 			if(is == null) return;
 			if(is.getRepairCost() > 37) {
 				is.setRepairCost(37);
 				event.setResult(CraftItemStack.asBukkitCopy(is));
 			}
 		}
+		*/
 	}
 	
 	@EventHandler

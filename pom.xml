@@ -32,30 +32,28 @@
     <dependency>
         <groupId>org.spigotmc</groupId>
         <artifactId>spigot</artifactId>
-        <version>1.10.2-R0.1-SNAPSHOT</version>
+        <version>1.12-R0.1-SNAPSHOT</version>
         <scope>provided</scope>
     </dependency>
     <dependency>
         <groupId>com.comphenix.protocol</groupId>
-        <artifactId>protocollib</artifactId>
-        <version>4.0.2-SNAPSHOT</version>
+        <artifactId>ProtocolLib-API</artifactId>
+        <version>4.3.0</version>
     </dependency>
     <dependency>
             <groupId>vg.civcraft.mc.civmodcore</groupId>
             <artifactId>CivModCore</artifactId>
-            <version>1.5.09</version>
-            <exclusions>
-                <exclusion>
-                    <groupId>org.mcstats.bukkit</groupId>
-                    <artifactId>metrics</artifactId>
-                </exclusion>
-            </exclusions>
+            <version>1.6.0</version>
         </dependency>
   </dependencies>
     <repositories>
         <repository>
             <id>spigot-repo</id>
             <url>https://hub.spigotmc.org/nexus/content/repositories/snapshots/</url>
+        </repository>
+        <repository>
+        	<id>dmulloy</id>
+        	<url>http://repo.dmulloy2.net/nexus/repository/public/</url>
         </repository>
     </repositories>
 </project>
