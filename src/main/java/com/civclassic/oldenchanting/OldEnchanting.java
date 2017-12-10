@@ -65,6 +65,7 @@ public class OldEnchanting extends JavaPlugin implements Listener {
 	private boolean noExp;
 	private int xpPerBottle;
 	private boolean infiniteEnchant;
+	private int maxRepairCost;
 	
 	@Override
 	public void onEnable() {
@@ -89,6 +90,7 @@ public class OldEnchanting extends JavaPlugin implements Listener {
 		noExp = getConfig().getBoolean("block_natural_exp", true);
 		xpPerBottle = getConfig().getInt("exp_per_bottle", 10);
 		infiniteEnchant = getConfig().getBoolean("infinite_enchant", true);
+		maxRepairCost = getConfig().getInt("max_repair_cost", 35);
 
 		getServer().getPluginManager().registerEvents(this, this);
 		if(hideEnchants) {
@@ -217,20 +219,15 @@ public class OldEnchanting extends JavaPlugin implements Listener {
 	@EventHandler
 	public void onPrepareAnvil(PrepareAnvilEvent event) {
 		if(!infiniteEnchant) return;
-		if(event.getInventory().getRepairCost() > 39) {
-			event.getInventory().setRepairCost(39);
-		}
-		/* Legacy code from 1.10
 		ItemStack result = event.getResult();
 		if(result != null && result.getType() != Material.AIR) {
 			net.minecraft.server.v1_12_R1.ItemStack is = CraftItemStack.asNMSCopy(result);
 			if(is == null) return;
-			if(is.getRepairCost() > 37) {
-				is.setRepairCost(37);
+			if(is.getRepairCost() > maxRepairCost -2) {
+				is.setRepairCost(maxRepairCost -2);
 				event.setResult(CraftItemStack.asBukkitCopy(is));
 			}
 		}
-		*/
 	}
 	
 	@EventHandler
