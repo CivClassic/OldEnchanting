@@ -1,9 +1,11 @@
 package com.civclassic.oldenchanting;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Random;
 import java.util.logging.Level;
+import java.util.stream.Collectors;
 
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
@@ -40,6 +42,7 @@ import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.ShapedRecipe;
 import org.bukkit.inventory.ShapelessRecipe;
 import org.bukkit.plugin.java.JavaPlugin;
+import org.bukkit.projectiles.BlockProjectileSource;
 import org.bukkit.projectiles.ProjectileSource;
 
 import com.comphenix.protocol.PacketType;
@@ -310,6 +313,31 @@ public class OldEnchanting extends JavaPlugin implements Listener {
 				Player shooter = (Player) source;
 				shooter.giveExp(xpPerBottle);
 				bottle.teleport(shooter.getEyeLocation());
+			}
+			else if (source instanceof BlockProjectileSource) {
+				List<Player> nearby = bottle.getNearbyEntities(0.9, 0.9, 0.9)
+						.stream()
+						.filter((entity) -> entity instanceof Player)
+						.map((entity) -> (Player) entity)
+						.collect(Collectors.toList());
+				if (nearby.isEmpty()) {
+					event.setShowEffect(false);
+					event.setExperience(0);
+					return;
+				}
+				Player closest = null;
+				double distance = Double.MAX_VALUE;
+				for (Player player : nearby) {
+					// Calculate how close this player is to the xp bottle
+					double tempDistance = player.getLocation().distance(bottle.getLocation());
+					// If there's no other player to compare to, just set this player as the closest
+					// or if this player is closer, then set this player as the closest
+					if (closest == null || tempDistance < distance) {
+						closest = player;
+						distance = tempDistance;
+					}
+				}
+				closest.giveExp(xpPerBottle);
 			}
 		}
 		else {
