@@ -15,6 +15,7 @@ import org.bukkit.enchantments.Enchantment;
 import org.bukkit.entity.EntityType;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
+import org.bukkit.entity.ThrownExpBottle;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
@@ -302,13 +303,16 @@ public class OldEnchanting extends JavaPlugin implements Listener {
 	
 	@EventHandler(priority = EventPriority.HIGHEST)
 	public void xpBottleEvent(ExpBottleEvent event) {
-		if(noExp) {
-			ProjectileSource source = event.getEntity().getShooter();
-			if(source instanceof Player) {
+		if (noExp) {
+			ThrownExpBottle bottle = event.getEntity();
+			ProjectileSource source = bottle.getShooter();
+			if (source instanceof Player) {
 				Player shooter = (Player) source;
 				shooter.giveExp(xpPerBottle);
+				bottle.teleport(shooter.getEyeLocation());
 			}
-		} else {
+		}
+		else {
 			event.setExperience(xpPerBottle);
 		}
 	}
