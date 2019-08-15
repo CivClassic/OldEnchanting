@@ -8,6 +8,7 @@ import java.util.logging.Level;
 import java.util.stream.Collectors;
 
 import org.bukkit.Bukkit;
+import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.block.Block;
 import org.bukkit.configuration.ConfigurationSection;
@@ -67,6 +68,7 @@ public class OldEnchanting extends JavaPlugin implements Listener {
 	private boolean emeraldCrafting;
 	private Map<EntityType, Double> xpModifiers;
 	private boolean noExp;
+	private double dispenserXPRadius;
 	private int xpPerBottle;
 	private boolean infiniteEnchant;
 	private int maxRepairCost;
@@ -92,6 +94,13 @@ public class OldEnchanting extends JavaPlugin implements Listener {
 			}
 		}
 		noExp = getConfig().getBoolean("block_natural_exp", true);
+		dispenserXPRadius = getConfig().getDouble("unnatural_dispensed_xp_radius", 2d);
+		if (dispenserXPRadius < 2) {
+			getLogger().warning("Your unnatural dispenser radius (" + dispenserXPRadius + ") is smaller than two blocks and so may result is unusual behaviour.");
+		}
+		else if (dispenserXPRadius > 7) {
+			getLogger().warning("Your unnatural dispenser radius (" + dispenserXPRadius + ") is larger than the distance xp orbs will naturally gravitate towards players.");
+		}
 		xpPerBottle = getConfig().getInt("exp_per_bottle", 10);
 		infiniteEnchant = getConfig().getBoolean("infinite_enchant", true);
 		maxRepairCost = getConfig().getInt("max_repair_cost", 35);
@@ -312,14 +321,21 @@ public class OldEnchanting extends JavaPlugin implements Listener {
 			if (source instanceof Player) {
 				Player shooter = (Player) source;
 				shooter.giveExp(xpPerBottle);
-				bottle.teleport(shooter.getEyeLocation());
+				bottle.teleport(shooter);
 			}
+			// NOTE: For some reason event.getHitBlock() and event.getHitEntity() will always return null
+			// and the location of the bottle upon this event's calling can be unexpected, which is why a
+			// radius larger than two is necessary because even if the event calls because the bottle hit
+			// a player, in some circumstances the location of the bottle still may be 1.8 blocks away,
+			// even if the bottle appears to have hit the player's feet or waist. Better to have to sort
+			// through a pool of larger entities than allow blatantly obvious collisions to go undetected
 			else if (source instanceof BlockProjectileSource) {
-				List<Player> nearby = bottle.getNearbyEntities(0.9, 0.9, 0.9)
+				List<Player> nearby = bottle.getNearbyEntities(dispenserXPRadius, dispenserXPRadius + 1, dispenserXPRadius)
 						.stream()
 						.filter((entity) -> entity instanceof Player)
 						.map((entity) -> (Player) entity)
 						.collect(Collectors.toList());
+				// If no player is found, prevent orbs from spawning
 				if (nearby.isEmpty()) {
 					event.setShowEffect(false);
 					event.setExperience(0);
@@ -328,8 +344,16 @@ public class OldEnchanting extends JavaPlugin implements Listener {
 				Player closest = null;
 				double distance = Double.MAX_VALUE;
 				for (Player player : nearby) {
-					// Calculate how close this player is to the xp bottle
-					double tempDistance = player.getLocation().distance(bottle.getLocation());
+					Location playerLocation = player.getLocation();
+					Location bottleLocation = bottle.getLocation();
+					// Reduce the importance of slight y level differences if the bottle is above the player
+					// so that someone standing on higher ground will not take precedence over someone
+					// standing closer, just because the potion is aimed at the latter person's head
+					double diffY = playerLocation.getY() - bottleLocation.getY();
+					if (diffY < 0) {
+						bottleLocation.setY(bottleLocation.getY() + (diffY < -1 ? -1 : diffY));
+					}
+					double tempDistance = playerLocation.distance(bottleLocation);
 					// If there's no other player to compare to, just set this player as the closest
 					// or if this player is closer, then set this player as the closest
 					if (closest == null || tempDistance < distance) {
@@ -338,6 +362,7 @@ public class OldEnchanting extends JavaPlugin implements Listener {
 					}
 				}
 				closest.giveExp(xpPerBottle);
+				bottle.teleport(closest);
 			}
 		}
 		else {
