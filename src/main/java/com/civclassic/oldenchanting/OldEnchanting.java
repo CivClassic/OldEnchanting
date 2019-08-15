@@ -313,6 +313,40 @@ public class OldEnchanting extends JavaPlugin implements Listener {
 		}
 	}
 	
+	@EventHandler
+	public void onEmeraldXP(PlayerInteractEvent event) {
+		// If emerald crafting is not enabled, back out
+		if (!emeraldCrafting) {
+			return;
+		}
+		// If the action is not a right click, back out
+		switch (event.getAction()) {
+			case RIGHT_CLICK_AIR:
+			case RIGHT_CLICK_BLOCK:
+				break;
+			default:
+				return;
+		}
+		// If the item is not an emerald, back out
+		ItemStack held = event.getPlayer().getInventory().getItemInMainHand();
+		if (held == null || !Material.EMERALD.equals(held.getType()) || held.getDurability() != 0) {
+			return;
+		}
+		int amount = held.getAmount();
+		if (amount <= 0) {
+			return;
+		}
+		// Apply the xp to the player at the cost of an emerald
+		event.getPlayer().giveExp(xpPerBottle * 9);
+		if (amount == 1) {
+			event.getPlayer().getInventory().setItemInMainHand(null);
+		}
+		else {
+			held.setAmount(--amount);
+			event.getPlayer().getInventory().setItemInMainHand(held);
+		}
+	}
+
 	@EventHandler(priority = EventPriority.HIGHEST)
 	public void xpBottleEvent(ExpBottleEvent event) {
 		if (noExp) {
