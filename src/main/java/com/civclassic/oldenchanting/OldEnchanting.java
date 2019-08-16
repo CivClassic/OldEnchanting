@@ -27,6 +27,7 @@ import org.bukkit.event.block.BlockBreakEvent;
 import org.bukkit.event.block.BlockExpEvent;
 import org.bukkit.event.enchantment.EnchantItemEvent;
 import org.bukkit.event.enchantment.PrepareItemEnchantEvent;
+import org.bukkit.event.entity.EntityBreedEvent;
 import org.bukkit.event.entity.EntityDeathEvent;
 import org.bukkit.event.entity.ExpBottleEvent;
 import org.bukkit.event.inventory.FurnaceExtractEvent;
@@ -41,6 +42,7 @@ import org.bukkit.event.player.PlayerFishEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.event.server.ServerCommandEvent;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.MerchantRecipe;
 import org.bukkit.inventory.ShapedRecipe;
 import org.bukkit.inventory.ShapelessRecipe;
 import org.bukkit.inventory.meta.ItemMeta;
@@ -267,12 +269,29 @@ public class OldEnchanting extends JavaPlugin implements Listener {
 	}
 
 	@EventHandler
-	public void onFishingXP(PlayerFishEvent event) {
+	public void onFishingXP(EntityBreedEvent event) {
+		if (noExp) {
+			event.setExperience(0);
+		}
+		else {
+			event.setExperience((int) Math.ceil(event.getExperience() * xpMod));
+		}
+	}
+
+	@EventHandler
+	public void onBreedXP(PlayerFishEvent event) {
 		if (noExp) {
 			event.setExpToDrop(0);
 		}
 		else {
 			event.setExpToDrop((int) Math.ceil(event.getExpToDrop() * xpMod));
+		}
+	}
+
+	@EventHandler
+	public void onMerchantXP(MerchantRecipe event) {
+		if (noExp) {
+			event.setExperienceReward(false);
 		}
 	}
 	
