@@ -37,6 +37,7 @@ import org.bukkit.event.inventory.InventoryOpenEvent;
 import org.bukkit.event.inventory.InventoryType;
 import org.bukkit.event.inventory.PrepareAnvilEvent;
 import org.bukkit.event.player.PlayerExpChangeEvent;
+import org.bukkit.event.player.PlayerFishEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.event.server.ServerCommandEvent;
 import org.bukkit.inventory.ItemStack;
@@ -261,6 +262,16 @@ public class OldEnchanting extends JavaPlugin implements Listener {
 					&& totalExp >= xpPerBottle) {
 				createXPBottles(player, totalExp);
 			}
+		}
+	}
+
+	@EventHandler
+	public void onFishingXP(PlayerFishEvent event) {
+		if (noExp) {
+			event.setExpToDrop(0);
+		}
+		else {
+			event.setExpToDrop((int) Math.ceil(event.getExpToDrop() * xpMod));
 		}
 	}
 	
