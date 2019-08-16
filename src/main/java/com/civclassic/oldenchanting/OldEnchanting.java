@@ -43,6 +43,7 @@ import org.bukkit.event.server.ServerCommandEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.ShapedRecipe;
 import org.bukkit.inventory.ShapelessRecipe;
+import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.projectiles.BlockProjectileSource;
 import org.bukkit.projectiles.ProjectileSource;
@@ -343,6 +344,14 @@ public class OldEnchanting extends JavaPlugin implements Listener {
 		if (held == null || !Material.EMERALD.equals(held.getType()) || held.getDurability() != 0) {
 			return;
 		}
+		// If the item is lored, it's probably a custom item, back out
+		if (held.hasItemMeta()) {
+			ItemMeta meta = held.getItemMeta();
+			if (meta != null && meta.hasLore()) {
+				return;
+			}
+		}
+		// If the amount is unsupported, back out
 		int amount = held.getAmount();
 		if (amount <= 0) {
 			return;
