@@ -1,11 +1,14 @@
 package com.civclassic.oldenchanting;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Random;
 import java.util.logging.Level;
+import java.util.stream.Collectors;
 
 import org.bukkit.Bukkit;
+import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.block.Block;
 import org.bukkit.configuration.ConfigurationSection;
@@ -15,6 +18,7 @@ import org.bukkit.enchantments.Enchantment;
 import org.bukkit.entity.EntityType;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
+import org.bukkit.entity.ThrownExpBottle;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
@@ -23,6 +27,7 @@ import org.bukkit.event.block.BlockBreakEvent;
 import org.bukkit.event.block.BlockExpEvent;
 import org.bukkit.event.enchantment.EnchantItemEvent;
 import org.bukkit.event.enchantment.PrepareItemEnchantEvent;
+import org.bukkit.event.entity.EntityBreedEvent;
 import org.bukkit.event.entity.EntityDeathEvent;
 import org.bukkit.event.entity.ExpBottleEvent;
 import org.bukkit.event.inventory.FurnaceExtractEvent;
@@ -33,12 +38,16 @@ import org.bukkit.event.inventory.InventoryOpenEvent;
 import org.bukkit.event.inventory.InventoryType;
 import org.bukkit.event.inventory.PrepareAnvilEvent;
 import org.bukkit.event.player.PlayerExpChangeEvent;
+import org.bukkit.event.player.PlayerFishEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.event.server.ServerCommandEvent;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.MerchantRecipe;
 import org.bukkit.inventory.ShapedRecipe;
 import org.bukkit.inventory.ShapelessRecipe;
+import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.plugin.java.JavaPlugin;
+import org.bukkit.projectiles.BlockProjectileSource;
 import org.bukkit.projectiles.ProjectileSource;
 
 import com.comphenix.protocol.PacketType;
@@ -63,6 +72,7 @@ public class OldEnchanting extends JavaPlugin implements Listener {
 	private boolean emeraldCrafting;
 	private Map<EntityType, Double> xpModifiers;
 	private boolean noExp;
+	private double dispenserXPRadius;
 	private int xpPerBottle;
 	private boolean infiniteEnchant;
 	private int maxRepairCost;
@@ -88,6 +98,13 @@ public class OldEnchanting extends JavaPlugin implements Listener {
 			}
 		}
 		noExp = getConfig().getBoolean("block_natural_exp", true);
+		dispenserXPRadius = getConfig().getDouble("unnatural_dispensed_xp_radius", 2d);
+		if (dispenserXPRadius < 2) {
+			getLogger().warning("Your unnatural dispenser radius (" + dispenserXPRadius + ") is smaller than two blocks and so may result is unusual behaviour.");
+		}
+		else if (dispenserXPRadius > 7) {
+			getLogger().warning("Your unnatural dispenser radius (" + dispenserXPRadius + ") is larger than the distance xp orbs will naturally gravitate towards players.");
+		}
 		xpPerBottle = getConfig().getInt("exp_per_bottle", 10);
 		infiniteEnchant = getConfig().getBoolean("infinite_enchant", true);
 		maxRepairCost = getConfig().getInt("max_repair_cost", 35);
@@ -250,6 +267,33 @@ public class OldEnchanting extends JavaPlugin implements Listener {
 			}
 		}
 	}
+
+	@EventHandler
+	public void onFishingXP(EntityBreedEvent event) {
+		if (noExp) {
+			event.setExperience(0);
+		}
+		else {
+			event.setExperience((int) Math.ceil(event.getExperience() * xpMod));
+		}
+	}
+
+	@EventHandler
+	public void onBreedXP(PlayerFishEvent event) {
+		if (noExp) {
+			event.setExpToDrop(0);
+		}
+		else {
+			event.setExpToDrop((int) Math.ceil(event.getExpToDrop() * xpMod));
+		}
+	}
+
+	@EventHandler
+	public void onMerchantXP(MerchantRecipe event) {
+		if (noExp) {
+			event.setExperienceReward(false);
+		}
+	}
 	
 	private void createXPBottles(Player player, int totalExp) {
 		ItemMap inv = new ItemMap(player.getInventory());
@@ -300,15 +344,101 @@ public class OldEnchanting extends JavaPlugin implements Listener {
 		}
 	}
 	
+	@EventHandler
+	public void onEmeraldXP(PlayerInteractEvent event) {
+		// If emerald crafting is not enabled, back out
+		if (!emeraldCrafting) {
+			return;
+		}
+		// If the action is not a right click, back out
+		switch (event.getAction()) {
+			case RIGHT_CLICK_AIR:
+			case RIGHT_CLICK_BLOCK:
+				break;
+			default:
+				return;
+		}
+		// If the item is not an emerald, back out
+		ItemStack held = event.getPlayer().getInventory().getItemInMainHand();
+		if (held == null || !Material.EMERALD.equals(held.getType()) || held.getDurability() != 0) {
+			return;
+		}
+		// If the item is lored, it's probably a custom item, back out
+		if (held.hasItemMeta()) {
+			ItemMeta meta = held.getItemMeta();
+			if (meta != null && meta.hasLore()) {
+				return;
+			}
+		}
+		// If the amount is unsupported, back out
+		int amount = held.getAmount();
+		if (amount <= 0) {
+			return;
+		}
+		// Apply the xp to the player at the cost of an emerald
+		event.getPlayer().giveExp(xpPerBottle * 9);
+		if (amount == 1) {
+			event.getPlayer().getInventory().setItemInMainHand(null);
+		}
+		else {
+			held.setAmount(--amount);
+			event.getPlayer().getInventory().setItemInMainHand(held);
+		}
+	}
+
 	@EventHandler(priority = EventPriority.HIGHEST)
 	public void xpBottleEvent(ExpBottleEvent event) {
-		if(noExp) {
-			ProjectileSource source = event.getEntity().getShooter();
-			if(source instanceof Player) {
+		if (noExp) {
+			ThrownExpBottle bottle = event.getEntity();
+			ProjectileSource source = bottle.getShooter();
+			if (source instanceof Player) {
 				Player shooter = (Player) source;
 				shooter.giveExp(xpPerBottle);
+				bottle.teleport(shooter);
 			}
-		} else {
+			// NOTE: For some reason event.getHitBlock() and event.getHitEntity() will always return null
+			// and the location of the bottle upon this event's calling can be unexpected, which is why a
+			// radius larger than two is necessary because even if the event calls because the bottle hit
+			// a player, in some circumstances the location of the bottle still may be 1.8 blocks away,
+			// even if the bottle appears to have hit the player's feet or waist. Better to have to sort
+			// through a pool of larger entities than allow blatantly obvious collisions to go undetected
+			else if (source instanceof BlockProjectileSource) {
+				List<Player> nearby = bottle.getNearbyEntities(dispenserXPRadius, dispenserXPRadius + 1, dispenserXPRadius)
+						.stream()
+						.filter((entity) -> entity instanceof Player)
+						.map((entity) -> (Player) entity)
+						.collect(Collectors.toList());
+				// If no player is found, prevent orbs from spawning
+				if (nearby.isEmpty()) {
+					event.setShowEffect(false);
+					event.setExperience(0);
+					return;
+				}
+				Player closest = null;
+				double distance = Double.MAX_VALUE;
+				for (Player player : nearby) {
+					Location playerLocation = player.getLocation();
+					Location bottleLocation = bottle.getLocation();
+					// Reduce the importance of slight y level differences if the bottle is above the player
+					// so that someone standing on higher ground will not take precedence over someone
+					// standing closer, just because the potion is aimed at the latter person's head
+					double diffY = playerLocation.getY() - bottleLocation.getY();
+					if (diffY < 0) {
+						bottleLocation.setY(bottleLocation.getY() + (diffY < -1 ? -1 : diffY));
+					}
+					double tempDistance = playerLocation.distance(bottleLocation);
+					// If there's no other player to compare to, just set this player as the closest
+					// or if this player is closer, then set this player as the closest
+					if (closest == null || tempDistance < distance) {
+						closest = player;
+						distance = tempDistance;
+					}
+				}
+				closest.giveExp(xpPerBottle);
+				bottle.teleport(closest);
+			}
+		}
+		else {
 			event.setExperience(xpPerBottle);
 		}
 	}
