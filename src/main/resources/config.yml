@@ -4,6 +4,7 @@ randomize_enchants: true #randomizes the enchantments every time the item is cli
 xpmod: 0.2 #multiply all xp drops by this
 loot_mult: 1.5 #multiply xp by this for each level of looting
 emerald_crafting: true #enables crafting xp bottles into emeralds
+emerald_leveling: true #endbles gaining xp from right clicking emeralds
 block_natural_exp: true #disables xp from dropping. xp from bottles will be given to players directly
 unnatural_dispensed_xp_radius: 2 #when block_natural_exp is enabled, what should the radius of dispensed xp be?
 infinite_enchant: true #allows infinite enchanting instead of unrepairable items

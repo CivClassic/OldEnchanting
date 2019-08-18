@@ -70,6 +70,7 @@ public class OldEnchanting extends JavaPlugin implements Listener {
 	private double xpMod;
 	private double lootMod;
 	private boolean emeraldCrafting;
+	private boolean emeraldLeveling;
 	private Map<EntityType, Double> xpModifiers;
 	private boolean noExp;
 	private double dispenserXPRadius;
@@ -89,6 +90,7 @@ public class OldEnchanting extends JavaPlugin implements Listener {
 		if(emeraldCrafting) {
 			registerRecipes();
 		}
+		emeraldLeveling = getConfig().getBoolean("emerald_leveling", true);
 		xpModifiers = new HashMap<EntityType, Double>();
 		ConfigurationSection entities = getConfig().getConfigurationSection("entities");
 		for(String key : entities.getKeys(false)) {
@@ -347,7 +349,7 @@ public class OldEnchanting extends JavaPlugin implements Listener {
 	@EventHandler
 	public void onEmeraldXP(PlayerInteractEvent event) {
 		// If emerald crafting is not enabled, back out
-		if (!emeraldCrafting) {
+		if (!emeraldLeveling) {
 			return;
 		}
 		// If the action is not a right click, back out
