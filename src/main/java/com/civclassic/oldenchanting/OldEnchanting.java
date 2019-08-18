@@ -1,6 +1,7 @@
 package com.civclassic.oldenchanting;
 
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
@@ -43,6 +44,7 @@ import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.event.server.ServerCommandEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.MerchantRecipe;
+import org.bukkit.inventory.Recipe;
 import org.bukkit.inventory.ShapedRecipe;
 import org.bukkit.inventory.ShapelessRecipe;
 import org.bukkit.inventory.meta.ItemMeta;
@@ -63,6 +65,10 @@ import vg.civcraft.mc.civmodcore.itemHandling.ItemMap;
 public class OldEnchanting extends JavaPlugin implements Listener {
 
 	private static Random rand = new Random();
+
+	private static final ItemStack emerald = new ItemStack(Material.EMERALD, 1);
+	private static final ShapelessRecipe emeraldToEXP;
+	private static final ShapedRecipe expToEmerald;
 	
 	private boolean hideEnchants;
 	private boolean fillLapis;
@@ -78,6 +84,16 @@ public class OldEnchanting extends JavaPlugin implements Listener {
 	private boolean infiniteEnchant;
 	private int maxRepairCost;
 	
+	static {
+		// Recipe that crafts Bottles o' Enchanting from Emeralds
+		emeraldToEXP = new ShapelessRecipe(new ItemStack(Material.EXP_BOTTLE, 9));
+		emeraldToEXP.addIngredient(Material.EMERALD);
+		// Recipe that crafts Emeralds from Bottles o' Enchanting
+		expToEmerald = new ShapedRecipe(emerald);
+		expToEmerald.shape("xxx", "xxx", "xxx");
+		expToEmerald.setIngredient('x', Material.EXP_BOTTLE);
+	}
+
 	@Override
 	public void onEnable() {
 		saveDefaultConfig();
@@ -86,9 +102,10 @@ public class OldEnchanting extends JavaPlugin implements Listener {
 		randomize = getConfig().getBoolean("randomize_enchants");
 		xpMod = getConfig().getDouble("xpmod");
 		lootMod = getConfig().getDouble("loot_mult");
-		emeraldCrafting = getConfig().getBoolean("emerald_crafting");
-		if(emeraldCrafting) {
-			registerRecipes();
+		this.emeraldCrafting = getConfig().getBoolean("emerald_crafting", true);
+		if (this.emeraldCrafting) {
+			getServer().addRecipe(emeraldToEXP);
+			getServer().addRecipe(expToEmerald);
 		}
 		emeraldLeveling = getConfig().getBoolean("emerald_leveling", true);
 		xpModifiers = new HashMap<EntityType, Double>();
@@ -128,18 +145,21 @@ public class OldEnchanting extends JavaPlugin implements Listener {
 			});
 		}
 	}
-	
-	private void registerRecipes() {
-		ItemStack emerald = new ItemStack(Material.EMERALD, 1);
-		ShapedRecipe expToEmerald = new ShapedRecipe(emerald);
-		expToEmerald.shape("xxx", "xxx", "xxx"); 
-		expToEmerald.setIngredient('x', Material.EXP_BOTTLE);
-		getServer().addRecipe(expToEmerald);
-		ItemStack bottles = new ItemStack(Material.EXP_BOTTLE, 9);
-		ShapelessRecipe emeraldsToExp = new ShapelessRecipe(bottles);
-		emeraldsToExp.addIngredient(Material.EMERALD);
-		getServer().addRecipe(emeraldsToExp);
+
+	@Override
+	public void onDisable() {
+		if (this.emeraldCrafting) {
+			Iterator<Recipe> recipes = getServer().recipeIterator();
+			while (recipes.hasNext()) {
+				Recipe current = recipes.next();
+				if (current == emeraldToEXP || current == expToEmerald) {
+					recipes.remove();
+				}
+			}
+		}
 	}
+
+
 	
 	@EventHandler
 	public void onServerCommand(ServerCommandEvent event) {
