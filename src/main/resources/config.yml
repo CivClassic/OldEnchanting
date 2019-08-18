@@ -7,6 +7,7 @@ emerald_crafting: true #enables crafting xp bottles into emeralds
 block_natural_exp: true #disables xp from dropping. xp from bottles will be given to players directly
 unnatural_dispensed_xp_radius: 2 #when block_natural_exp is enabled, what should the radius of dispensed xp be?
 infinite_enchant: true #allows infinite enchanting instead of unrepairable items
+max_repair_cost: 35 #if infinite_enchant is set to true, then this will define the repair level cost cap
 exp_per_bottle: 10 #the amount of xp each bottle should give and hold
 #give a special xp modifier to certain mobs
 entities:
