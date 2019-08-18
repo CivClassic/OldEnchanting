@@ -269,7 +269,7 @@ public class OldEnchanting extends JavaPlugin implements Listener {
 	}
 
 	@EventHandler
-	public void onFishingXP(EntityBreedEvent event) {
+	public void onBreedXP(EntityBreedEvent event) {
 		if (noExp) {
 			event.setExperience(0);
 		}
@@ -279,7 +279,7 @@ public class OldEnchanting extends JavaPlugin implements Listener {
 	}
 
 	@EventHandler
-	public void onBreedXP(PlayerFishEvent event) {
+	public void onFishingXP(PlayerFishEvent event) {
 		if (noExp) {
 			event.setExpToDrop(0);
 		}
