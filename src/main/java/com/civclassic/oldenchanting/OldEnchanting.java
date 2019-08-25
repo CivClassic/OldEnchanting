@@ -45,6 +45,7 @@ import org.bukkit.inventory.AnvilInventory;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.InventoryView;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.Merchant;
 import org.bukkit.inventory.MerchantRecipe;
 import org.bukkit.inventory.PlayerInventory;
 import org.bukkit.inventory.Recipe;
@@ -364,10 +365,18 @@ public class OldEnchanting extends JavaPlugin implements Listener {
 	}
 
 	@EventHandler(priority=EventPriority.HIGHEST)
-	public void onMerchantExp(MerchantRecipe event) {
-		// If exp from merchants is disabled, prevent exp from being rewarded
-		if (this.disableGrindExp) {
-			event.setExperienceReward(false);
+	public void onMerchantRecipe(InventoryOpenEvent event) {
+		// If not disabling merchant recipe xp, back out
+		if (!this.disableGrindExp) {
+			return;
+		}
+		// If not a merchant inventory, back out
+		if (!(event.getInventory() instanceof Merchant)) {
+			return;
+		}
+		// Disable all exp rewards
+		for (MerchantRecipe recipe : ((Merchant) event.getInventory()).getRecipes()) {
+			recipe.setExperienceReward(false);
 		}
 	}
 
