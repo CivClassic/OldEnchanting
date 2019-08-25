@@ -52,6 +52,12 @@ exp_per_bottle: 10
 # Allows player's to store their levels in bottles if constant_bottle_exp is enabled
 allow_exp_recovery: true
 
+# Disallows players from creating enchanted books
+disable_enchanted_book_creation: true
+
+# Disallows players from using enchanted books
+disable_enchanted_book_usage: true
+
 # Modifies the exp drops for specific mob types, which will be used in lieu of experience_modifier
 # NOTE: Players have an implicit modifier of 1.0
 # NOTE: Modifiers must be zero or greater

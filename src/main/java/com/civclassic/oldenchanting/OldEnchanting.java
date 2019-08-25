@@ -15,6 +15,7 @@ import org.bukkit.craftbukkit.v1_12_R1.inventory.CraftInventoryView;
 import org.bukkit.craftbukkit.v1_12_R1.inventory.CraftItemStack;
 import org.bukkit.enchantments.Enchantment;
 import org.bukkit.entity.EntityType;
+import org.bukkit.entity.HumanEntity;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
 import org.bukkit.entity.ThrownExpBottle;
@@ -40,6 +41,7 @@ import org.bukkit.event.inventory.PrepareAnvilEvent;
 import org.bukkit.event.player.PlayerExpChangeEvent;
 import org.bukkit.event.player.PlayerFishEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
+import org.bukkit.inventory.AnvilInventory;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.InventoryView;
 import org.bukkit.inventory.ItemStack;
@@ -89,6 +91,8 @@ public class OldEnchanting extends JavaPlugin implements Listener {
 	private boolean constantBottleExp;
 	private int expPerBottle;
 	private boolean allowExpRecovery;
+	private boolean disableEnchantedBookCreation;
+	private boolean disableEnchantedBookUsage;
 	private Map<EntityType, Double> entityExpDropModifiers;
 
 	static {
@@ -202,6 +206,10 @@ public class OldEnchanting extends JavaPlugin implements Listener {
 		}
 		// Allows player's to store their levels in bottles if constantBottleEXP is enabled
 		this.allowExpRecovery = config.getBoolean("allow_exp_recovery", true);
+		// Disallows players from creating enchanted books
+		this.disableEnchantedBookCreation = config.getBoolean("disable_enchanted_book_creation", true);
+		// Disallows players from using enchanted books
+		this.disableEnchantedBookUsage = config.getBoolean("disable_enchanted_book_usage", true);
 		// Modifies the exp drops for specific mob types, which will be used in lieu of experienceModifier
 		// NOTE: Players have an implicit modifier of 1.0
 		// NOTE: NOTE: Modifiers must be zero or greater
@@ -491,6 +499,47 @@ public class OldEnchanting extends JavaPlugin implements Listener {
 	}
 
 	@EventHandler(priority=EventPriority.HIGHEST)
+	public void onPrepareBookEnchant(PrepareItemEnchantEvent event) {
+		// If creating enchanted books is enabled, back out
+		if (!this.disableEnchantedBookCreation) {
+			return;
+		}
+		// If the item is not a book, back out
+		ItemStack item = event.getItem();
+		if (item == null) {
+			return;
+		}
+		if (item.getType() != Material.BOOK) {
+			return;
+		}
+		// Otherwise cancel the event
+		event.setCancelled(true);
+	}
+
+	@EventHandler(priority=EventPriority.HIGHEST)
+	public void onPrepareBookUsage(PrepareAnvilEvent event) {
+		// If creating enchanted books is enabled, back out
+		if (!this.disableEnchantedBookUsage) {
+			return;
+		}
+		// If there's an enchanted book, prevent there from being a result
+		AnvilInventory inventory = event.getInventory();
+		if (inventory.first(Material.ENCHANTED_BOOK) != -1) {
+			if (event.getResult() != null) {
+				event.setResult(null);
+				// This is needed because of client side shenanigans
+				Bukkit.getScheduler().runTaskLater(this, () -> {
+					for (HumanEntity viewer : inventory.getViewers()) {
+						if (viewer instanceof Player) {
+							((Player) viewer).updateInventory();
+						}
+					}
+				}, 1L);
+			}
+		}
+	}
+
+	@EventHandler(priority=EventPriority.HIGHEST)
 	public void onPrepareItemEnchant(PrepareItemEnchantEvent event) {
 		CraftInventoryView view = (CraftInventoryView) event.getView();
 		ContainerEnchantTable table = (ContainerEnchantTable) view.getHandle();
@@ -501,7 +550,7 @@ public class OldEnchanting extends JavaPlugin implements Listener {
 	}
 
 	@EventHandler(priority=EventPriority.HIGHEST)
-	public void onPrepareAnvil(PrepareAnvilEvent event) {
+	public void onAnvilRepair(PrepareAnvilEvent event) {
 		// If infinite repair is not enabled, back out
 		if (!this.infiniteRepair) {
 			return;
