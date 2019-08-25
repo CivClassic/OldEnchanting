@@ -1,5 +1,6 @@
 package com.civclassic.oldenchanting;
 
+import java.security.SecureRandom;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
@@ -68,7 +69,7 @@ import vg.civcraft.mc.civmodcore.itemHandling.ItemMap;
 
 public class OldEnchanting extends JavaPlugin implements Listener {
 
-	private static final Random random = new Random();
+	private static final Random random = new SecureRandom();
 
 	private static final ItemStack lapis = new ItemStack(Material.INK_SACK, 64, (short) 4);
 	private static final ItemStack emerald = new ItemStack(Material.EMERALD, 1);
