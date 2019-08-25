@@ -203,7 +203,7 @@ public class OldEnchanting extends JavaPlugin implements Listener {
 		this.expPerBottle = config.getInt("exp_per_bottle", 10);
 		if (this.expPerBottle <= 0) {
 			Bukkit.getLogger().warning("Experience per bottle [" + this.expPerBottle + "] is unsupported, defaulting to 10");
-			this.maxRepairCost = 10;
+			this.expPerBottle = 10;
 		}
 		// Allows player's to store their levels in bottles if constantBottleEXP is enabled
 		this.allowExpRecovery = config.getBoolean("allow_exp_recovery", true);
