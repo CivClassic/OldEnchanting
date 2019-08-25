@@ -401,7 +401,11 @@ public class OldEnchanting extends JavaPlugin implements Listener {
 			if (thrower instanceof Player) {
 				Player player = (Player) thrower;
 				player.giveExp(event.getExperience());
-				player.playSound(player.getEyeLocation(), Sound.ENTITY_EXPERIENCE_ORB_PICKUP, 1f, 1f);
+				// Play the experience sound as no experience orbs will be spawned
+				// Credit to Team CoFH for the random pitch generator, see their code below
+				// https://github.com/CoFH/ThermalFoundation/blob/1.12/src/main/java/cofh/thermalfoundation/item/tome/ItemTomeExperience.java#L268
+				// This is a reasonable use of their "Copy portions of this code for use in other projects." clause.
+				player.getWorld().playSound(player.getLocation(), Sound.ENTITY_EXPERIENCE_ORB_PICKUP, 0.1F, (random.nextFloat() - random.nextFloat()) * 0.35f + 0.9f);
 				event.setExperience(0);
 				bottle.teleport(player);
 			}
