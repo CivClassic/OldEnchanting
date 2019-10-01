@@ -4,7 +4,7 @@
 
     <groupId>com.civclassic.oldenchanting</groupId>
     <artifactId>OldEnchanting</artifactId>
-    <version>1.1.0</version>
+    <version>1.2.0</version>
   
     <build>
         <sourceDirectory>${basedir}/src</sourceDirectory>
@@ -34,7 +34,7 @@
         <dependency>
             <groupId>org.spigotmc</groupId>
             <artifactId>spigot</artifactId>
-            <version>1.12-R0.1-SNAPSHOT</version>
+            <version>1.14-R0.1-SNAPSHOT</version>
             <scope>provided</scope>
         </dependency>
         <dependency>
@@ -45,7 +45,7 @@
         <dependency>
             <groupId>vg.civcraft.mc.civmodcore</groupId>
             <artifactId>CivModCore</artifactId>
-            <version>1.6.0</version>
+            <version>1.7.5</version>
         </dependency>
     </dependencies>
 
