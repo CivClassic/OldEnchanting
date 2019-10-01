@@ -1,5 +1,5 @@
 name: ${project.artifactId}
 main: ${project.groupId}.${project.artifactId}
 version: ${project.version}
-author: biggestnerd
+authors: [biggestnerd, Protonull]
 depend: [ProtocolLib]

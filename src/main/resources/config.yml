@@ -1,13 +1,65 @@
-hide_enchants: true #hides the enchantment tooltip
-fill_lapis: true #fills second slot with lapis (can't be taken by players)
-randomize_enchants: true #randomizes the enchantments every time the item is clicked
-xpmod: 0.2 #multiply all xp drops by this
-loot_mult: 1.5 #multiply xp by this for each level of looting
-emerald_crafting: true #enables crafting xp bottles into emeralds
-block_natural_exp: true #disables xp from dropping. xp from bottles will be given to players directly
-unnatural_dispensed_xp_radius: 2 #when block_natural_exp is enabled, what should the radius of dispensed xp be?
-infinite_enchant: true #allows infinite enchanting instead of unrepairable items
-exp_per_bottle: 10 #the amount of xp each bottle should give and hold
-#give a special xp modifier to certain mobs
+# Hides what enchantment will be granted within the Enchanting Table GUI
+hide_enchants: true
+
+# Automatically fills the consumable slot with the Enchanting Table GUI with Lapis Lazuli
+# NOTE: The Lapis Lazuli cannot be removed by the player
+fill_lapis: true
+
+# Randomises the enchantment offers each time the item is placed in an Enchanting Table
+randomise_enchants: true
+
+# Experience modifier, all experience drops will be multiplied by this
+# NOTE: Does not apply to player exp
+# NOTE: Modifier must be zero or greater
+experience_modifier: 0.2
+
+# Loot modifier, multiply the amount of exp dropped from each level of Looting
+# NOTE: Does not apply to player exp
+# NOTE: Modifier must be zero or greater
+loot_modifier: 1.5
+
+# Enables xp bottles to be crafted from emeralds and vice versa
+emerald_crafting: true
+
+# Enables gaining xp from emeralds directly without needing to craft and use xp bottles if emerald_crafting is enabled
+emerald_leveling: true
+
+# Disables exp from mobs, fishing, mining, breeding, furnace extracting, etc
+disable_grind_exp: true
+
+# Prevents exp orbs from granting xp
+# NOTE: This will not prevent exp orbs from spawning
+prevent_orb_exp: true
+
+# Ensures that the player who threw the xp bottle is the one to get the xp
+# NOTE: experience_modifier will not apply to directly granted exp
+direct_bottle_exp: true
+
+# Allows items to be repaired infinitely, will require a level cap
+infinite_repair: true
+
+# Defines the maximum repair cost of an item if infinite_repair is enabled
+# NOTE: Value must be two or greater
+max_repair_cost: 33
+
+# Ensures that xp bottles produce a set amount of exp
+constant_bottle_exp: true
+
+# Defines the set amount of xp that xp bottles will produce if constant_bottle_exp is enabled
+# NOTE: Value must be a positive integer
+exp_per_bottle: 10
+
+# Allows player's to store their levels in bottles if constant_bottle_exp is enabled
+allow_exp_recovery: true
+
+# Disallows players from creating enchanted books
+disable_enchanted_book_creation: true
+
+# Disallows players from using enchanted books
+disable_enchanted_book_usage: true
+
+# Modifies the exp drops for specific mob types, which will be used in lieu of experience_modifier
+# NOTE: Players have an implicit modifier of 1.0
+# NOTE: Modifiers must be zero or greater
 entities:
   ENDER_DRAGON: 0.1
