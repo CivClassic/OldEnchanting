@@ -1,4 +1,4 @@
-package com.civclassic.oldenchanting;
+package main.java.com.civclassic.oldenchanting;
 
 import java.security.SecureRandom;
 import java.util.HashMap;
@@ -12,8 +12,8 @@ import org.bukkit.Sound;
 import org.bukkit.block.Block;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.FileConfiguration;
-import org.bukkit.craftbukkit.v1_12_R1.inventory.CraftInventoryView;
-import org.bukkit.craftbukkit.v1_12_R1.inventory.CraftItemStack;
+import org.bukkit.craftbukkit.v1_14_R1.inventory.CraftInventoryView;
+import org.bukkit.craftbukkit.v1_14_R1.inventory.CraftItemStack;
 import org.bukkit.enchantments.Enchantment;
 import org.bukkit.entity.EntityType;
 import org.bukkit.entity.HumanEntity;
@@ -64,14 +64,14 @@ import com.comphenix.protocol.events.PacketContainer;
 import com.comphenix.protocol.events.PacketEvent;
 
 import net.md_5.bungee.api.ChatColor;
-import net.minecraft.server.v1_12_R1.ContainerEnchantTable;
+import net.minecraft.server.v1_14_R1.ContainerEnchantTable;
 import vg.civcraft.mc.civmodcore.itemHandling.ItemMap;
 
 public class OldEnchanting extends JavaPlugin implements Listener {
 
 	private static final Random random = new SecureRandom();
-
-	private static final ItemStack lapis = new ItemStack(Material.INK_SACK, 64, (short) 4);
+	
+	private static final ItemStack lapis = new ItemStack(Material.INK_SAC, 64);
 	private static final ItemStack emerald = new ItemStack(Material.EMERALD, 1);
 	private static final ShapelessRecipe emeraldToExp;
 	private static final ShapedRecipe expToEmerald;
@@ -99,12 +99,12 @@ public class OldEnchanting extends JavaPlugin implements Listener {
 
 	static {
 		// Recipe that crafts Bottles o' Enchanting from Emeralds
-		emeraldToExp = new ShapelessRecipe(new ItemStack(Material.EXP_BOTTLE, 9));
+		emeraldToExp = new ShapelessRecipe(new ItemStack(Material.EXPERIENCE_BOTTLE, 9));
 		emeraldToExp.addIngredient(Material.EMERALD);
 		// Recipe that crafts Emeralds from Bottles o' Enchanting
 		expToEmerald = new ShapedRecipe(emerald);
 		expToEmerald.shape("xxx", "xxx", "xxx");
-		expToEmerald.setIngredient('x', Material.EXP_BOTTLE);
+		expToEmerald.setIngredient('x', Material.EXPERIENCE_BOTTLE);
 	}
 
 	@Override
@@ -493,7 +493,7 @@ public class OldEnchanting extends JavaPlugin implements Listener {
 		}
 		// If the block being punched isn't an Enchanting Table, back out
 		Block block = event.getClickedBlock();
-		if (block.getType() != Material.ENCHANTMENT_TABLE) {
+		if (block.getType() != Material.ENCHANTING_TABLE) {
 			return;
 		}
 		// If the player is not holding glass bottles, back out
@@ -559,7 +559,8 @@ public class OldEnchanting extends JavaPlugin implements Listener {
 		ContainerEnchantTable table = (ContainerEnchantTable) view.getHandle();
 		// If randomise enchants is enabled, randomise the offers
 		if (this.randomiseEnchants) {
-			table.f = random.nextInt();
+			//TODO Fix randomize enchants
+			//table.f = random.nextInt();
 		}
 	}
 
@@ -581,7 +582,7 @@ public class OldEnchanting extends JavaPlugin implements Listener {
 			return;
 		}
 		// Attempt to create a CraftItemStack, if it failed, back out
-		net.minecraft.server.v1_12_R1.ItemStack craftItem = CraftItemStack.asNMSCopy(result);
+		net.minecraft.server.v1_14_R1.ItemStack craftItem = CraftItemStack.asNMSCopy(result);
 		if (craftItem == null) {
 			return;
 		}
@@ -674,7 +675,7 @@ public class OldEnchanting extends JavaPlugin implements Listener {
 		}
 		// If block is not an Enchanting Table, back out
 		Block block = event.getBlock();
-		if (block.getType() != Material.ENCHANTMENT_TABLE) {
+		if (block.getType() != Material.ENCHANTING_TABLE) {
 			return;
 		}
 		// Remove Lapis Lazuli from the drops
@@ -711,7 +712,7 @@ public class OldEnchanting extends JavaPlugin implements Listener {
 		for (ItemStack is : removeMap.getItemStackRepresentation()) {
 			int initialAmount = is.getAmount();
 			player.getInventory().removeItem(is);
-			is.setType(Material.EXP_BOTTLE);
+			is.setType(Material.EXPERIENCE_BOTTLE);
 			HashMap<Integer, ItemStack> result = player.getInventory().addItem(is);
 			if (!result.isEmpty()) {
 				is.setType(Material.GLASS_BOTTLE);
