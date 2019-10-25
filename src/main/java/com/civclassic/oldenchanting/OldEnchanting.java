@@ -1,5 +1,7 @@
 package com.civclassic.oldenchanting;
 
+import java.lang.reflect.Field;
+import java.lang.reflect.Modifier;
 import java.security.SecureRandom;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -8,6 +10,7 @@ import java.util.Random;
 
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
+import org.bukkit.NamespacedKey;
 import org.bukkit.Sound;
 import org.bukkit.block.Block;
 import org.bukkit.configuration.ConfigurationSection;
@@ -70,11 +73,13 @@ import vg.civcraft.mc.civmodcore.itemHandling.ItemMap;
 public class OldEnchanting extends JavaPlugin implements Listener {
 
 	private static final Random random = new SecureRandom();
-	
+
 	private static final ItemStack lapis = new ItemStack(Material.INK_SAC, 64);
 	private static final ItemStack emerald = new ItemStack(Material.EMERALD, 1);
-	private static final ShapelessRecipe emeraldToExp;
-	private static final ShapedRecipe expToEmerald;
+	private ShapelessRecipe emeraldToExp;
+	private ShapedRecipe expToEmerald;
+	
+	private static Field tableRandomField;
 
 	private PacketAdapter hideEnchantsAdapter;
 
@@ -98,19 +103,29 @@ public class OldEnchanting extends JavaPlugin implements Listener {
 	private Map<EntityType, Double> entityExpDropModifiers;
 
 	static {
-		// Recipe that crafts Bottles o' Enchanting from Emeralds
-		emeraldToExp = new ShapelessRecipe(new ItemStack(Material.EXPERIENCE_BOTTLE, 9));
-		emeraldToExp.addIngredient(Material.EMERALD);
-		// Recipe that crafts Emeralds from Bottles o' Enchanting
-		expToEmerald = new ShapedRecipe(emerald);
-		expToEmerald.shape("xxx", "xxx", "xxx");
-		expToEmerald.setIngredient('x', Material.EXPERIENCE_BOTTLE);
+		try {
+			Class<ContainerEnchantTable> tableClass = ContainerEnchantTable.class;
+			tableRandomField = tableClass.getDeclaredField("h");
+			tableRandomField.setAccessible(true);
+			Field modifiersField = Field.class.getDeclaredField("modifiers");
+			modifiersField.setAccessible(true);
+			modifiersField.setInt(tableRandomField, tableRandomField.getModifiers() & ~Modifier.FINAL);
+		} catch (IllegalArgumentException | IllegalAccessException | NoSuchFieldException | SecurityException e) {
+			e.printStackTrace();
+		}
 	}
 
 	@Override
 	public void onEnable() {
 		saveDefaultConfig();
 		FileConfiguration config = getConfig();
+		// Recipe that crafts Bottles o' Enchanting from Emeralds
+		emeraldToExp = new ShapelessRecipe(new NamespacedKey(this, "emeraldToBottle"), new ItemStack(Material.EXPERIENCE_BOTTLE, 9));
+		emeraldToExp.addIngredient(Material.EMERALD);
+		// Recipe that crafts Emeralds from Bottles o' Enchanting
+		expToEmerald = new ShapedRecipe(new NamespacedKey(this, "bottleToEmerald"), emerald);
+		expToEmerald.shape("xxx", "xxx", "xxx");
+		expToEmerald.setIngredient('x', Material.EXPERIENCE_BOTTLE);
 		// Hides what enchantment will be granted within the Enchanting Table GUI
 		this.hideEnchants = config.getBoolean("hide_enchants", true);
 		if (this.hideEnchants) {
@@ -122,22 +137,24 @@ public class OldEnchanting extends JavaPlugin implements Listener {
 				public void onPacketSending(PacketEvent event) {
 					PacketContainer packet = event.getPacket();
 					int property = packet.getIntegers().read(1);
-					switch(property) {
-						case 3:
-						case 4:
-						case 5:
-						case 6:
-							packet.getIntegers().write(2, -1);
+					switch (property) {
+					case 3:
+					case 4:
+					case 5:
+					case 6:
+						packet.getIntegers().write(2, -1);
 					}
 				}
 			};
 			ProtocolLibrary.getProtocolManager().addPacketListener(this.hideEnchantsAdapter);
 		}
-		// Automatically fills the consumable slot with the Enchanting Table GUI with Lapis Lazuli
+		// Automatically fills the consumable slot with the Enchanting Table GUI with
+		// Lapis Lazuli
 		// NOTE: The Lapis Lazuli cannot be removed by the player
 		this.fillLapis = config.getBoolean("fill_lapis", true);
 		if (this.fillLapis) {
-			// Puts Lapis Lazuli in Enchanting Table GUIs if any are active which may happen during a /reload
+			// Puts Lapis Lazuli in Enchanting Table GUIs if any are active which may happen
+			// during a /reload
 			for (Player player : Bukkit.getOnlinePlayers()) {
 				InventoryView inventory = player.getOpenInventory();
 				if (inventory == null) {
@@ -149,14 +166,16 @@ public class OldEnchanting extends JavaPlugin implements Listener {
 				inventory.setItem(1, lapis.clone());
 			}
 		}
-		// Randomises the enchantment offers each time the item is placed in an Enchanting Table
+		// Randomises the enchantment offers each time the item is placed in an
+		// Enchanting Table
 		this.randomiseEnchants = config.getBoolean("randomise_enchants", config.getBoolean("randomize_enchants", true));
 		// Experience modifier, all experience drops will be multiplied by this
 		// NOTE: Does not apply to player exp
 		// NOTE: Modifier must be zero or greater
 		this.experienceModifier = config.getDouble("experience_modifier", config.getDouble("xpmod", 0.2d));
 		if (this.experienceModifier < 0.0d) {
-			Bukkit.getLogger().warning("Experience modifier [" + this.experienceModifier + "] is unsupported, defaulting to 0.2");
+			Bukkit.getLogger()
+					.warning("Experience modifier [" + this.experienceModifier + "] is unsupported, defaulting to 0.2");
 			this.experienceModifier = 0.2d;
 		}
 		// Loot modifier, multiply the amount of exp dropped from each level of Looting
@@ -173,7 +192,8 @@ public class OldEnchanting extends JavaPlugin implements Listener {
 			getServer().addRecipe(emeraldToExp);
 			getServer().addRecipe(expToEmerald);
 		}
-		// Enables gaining xp from emeralds directly without needing to craft and use xp bottles if emeraldCrafting is enabled
+		// Enables gaining xp from emeralds directly without needing to craft and use xp
+		// bottles if emeraldCrafting is enabled
 		this.emeraldLeveling = config.getBoolean("emerald_leveling", true);
 		// Disables exp from mobs, fishing, mining, breeding, furnace extracting, etc
 		this.disableGrindExp = config.getBoolean("disable_grind_exp", true);
@@ -195,25 +215,30 @@ public class OldEnchanting extends JavaPlugin implements Listener {
 		// NOTE: Value must be two or greater
 		this.maxRepairCost = config.getInt("max_repair_cost", 33);
 		if (this.maxRepairCost < 2) {
-			Bukkit.getLogger().warning("Maximum repair cost [" + this.maxRepairCost + "] is unsupported, defaulting to 33");
+			Bukkit.getLogger()
+					.warning("Maximum repair cost [" + this.maxRepairCost + "] is unsupported, defaulting to 33");
 			this.maxRepairCost = 33;
 		}
 		// Ensures that xp bottles produce a set amount of exp
 		this.constantBottleExp = config.getBoolean("constant_bottle_exp", true);
-		// Defines the set amount of xp that xp bottles will produce if constantBottleEXP is enabled
+		// Defines the set amount of xp that xp bottles will produce if
+		// constantBottleEXP is enabled
 		// NOTE: Value must be a positive integer
 		this.expPerBottle = config.getInt("exp_per_bottle", 10);
 		if (this.expPerBottle <= 0) {
-			Bukkit.getLogger().warning("Experience per bottle [" + this.expPerBottle + "] is unsupported, defaulting to 10");
+			Bukkit.getLogger()
+					.warning("Experience per bottle [" + this.expPerBottle + "] is unsupported, defaulting to 10");
 			this.expPerBottle = 10;
 		}
-		// Allows player's to store their levels in bottles if constantBottleEXP is enabled
+		// Allows player's to store their levels in bottles if constantBottleEXP is
+		// enabled
 		this.allowExpRecovery = config.getBoolean("allow_exp_recovery", true);
 		// Disallows players from creating enchanted books
 		this.disableEnchantedBookCreation = config.getBoolean("disable_enchanted_book_creation", true);
 		// Disallows players from using enchanted books
 		this.disableEnchantedBookUsage = config.getBoolean("disable_enchanted_book_usage", true);
-		// Modifies the exp drops for specific mob types, which will be used in lieu of experienceModifier
+		// Modifies the exp drops for specific mob types, which will be used in lieu of
+		// experienceModifier
 		// NOTE: Players have an implicit modifier of 1.0
 		// NOTE: NOTE: Modifiers must be zero or greater
 		this.entityExpDropModifiers = new HashMap<>();
@@ -224,14 +249,14 @@ public class OldEnchanting extends JavaPlugin implements Listener {
 				EntityType type;
 				try {
 					type = EntityType.valueOf(key);
-				}
-				catch (IllegalArgumentException error) {
+				} catch (IllegalArgumentException error) {
 					Bukkit.getLogger().warning("EntityType [" + key + "] does not exist, skipping.");
 					continue;
 				}
 				double modifier = entities.getDouble(key, 1.0d);
 				if (modifier < 0.0d) {
-					Bukkit.getLogger().warning("Experience modifier [" + modifier + "] for [" + key + "] is unsupported, defaulting to 1.0");
+					Bukkit.getLogger().warning("Experience modifier [" + modifier + "] for [" + key
+							+ "] is unsupported, defaulting to 1.0");
 					modifier = 1.0d;
 				}
 				this.entityExpDropModifiers.put(type, modifier);
@@ -275,12 +300,13 @@ public class OldEnchanting extends JavaPlugin implements Listener {
 		// Clear our entity experience modifiers
 		this.entityExpDropModifiers.clear();
 		// Clear the event listeners from this plugin
-		// NOTE: It's cast to Plugin because this plugin extends Plugin but also implements
-		//       Listener, so we need to make this call unambiguous. Try it for yourself.
+		// NOTE: It's cast to Plugin because this plugin extends Plugin but also
+		// implements
+		// Listener, so we need to make this call unambiguous. Try it for yourself.
 		HandlerList.unregisterAll((Plugin) this);
 	}
-	
-	@EventHandler(priority=EventPriority.HIGHEST)
+
+	@EventHandler(priority = EventPriority.HIGHEST)
 	public void onEntityDeath(EntityDeathEvent event) {
 		// If exp from mobs is disabled, prevent exp from being dropped
 		if (this.disableGrindExp) {
@@ -318,7 +344,7 @@ public class OldEnchanting extends JavaPlugin implements Listener {
 		event.setDroppedExp(Math.max(0, experience));
 	}
 
-	@EventHandler(priority=EventPriority.HIGHEST)
+	@EventHandler(priority = EventPriority.HIGHEST)
 	public void onBlockExp(BlockExpEvent event) {
 		// If exp from mining is disabled, prevent exp from being dropped
 		if (this.disableGrindExp) {
@@ -330,7 +356,7 @@ public class OldEnchanting extends JavaPlugin implements Listener {
 		}
 	}
 
-	@EventHandler(priority=EventPriority.HIGHEST)
+	@EventHandler(priority = EventPriority.HIGHEST)
 	public void onFurnaceExp(FurnaceExtractEvent event) {
 		// If exp from furnaces is disabled, prevent exp from being dropped
 		if (this.disableGrindExp) {
@@ -342,7 +368,7 @@ public class OldEnchanting extends JavaPlugin implements Listener {
 		}
 	}
 
-	@EventHandler(priority=EventPriority.HIGHEST)
+	@EventHandler(priority = EventPriority.HIGHEST)
 	public void onFishingExp(PlayerFishEvent event) {
 		// If exp from fishing is disabled, prevent exp from being dropped
 		if (this.disableGrindExp) {
@@ -354,7 +380,7 @@ public class OldEnchanting extends JavaPlugin implements Listener {
 		}
 	}
 
-	@EventHandler(priority=EventPriority.HIGHEST)
+	@EventHandler(priority = EventPriority.HIGHEST)
 	public void onBreedExp(EntityBreedEvent event) {
 		// If exp from breeding is disabled, prevent exp from being given
 		if (this.disableGrindExp) {
@@ -366,7 +392,7 @@ public class OldEnchanting extends JavaPlugin implements Listener {
 		}
 	}
 
-	@EventHandler(priority=EventPriority.HIGHEST)
+	@EventHandler(priority = EventPriority.HIGHEST)
 	public void onMerchantRecipe(InventoryOpenEvent event) {
 		// If not disabling merchant recipe xp, back out
 		if (!this.disableGrindExp) {
@@ -382,7 +408,7 @@ public class OldEnchanting extends JavaPlugin implements Listener {
 		}
 	}
 
-	@EventHandler(priority=EventPriority.HIGHEST)
+	@EventHandler(priority = EventPriority.HIGHEST)
 	public void onExpChange(PlayerExpChangeEvent event) {
 		// If exp orbs are disabled, prevent exp from applying
 		if (this.preventOrbExp) {
@@ -406,15 +432,17 @@ public class OldEnchanting extends JavaPlugin implements Listener {
 				// Play the experience sound as no experience orbs will be spawned
 				// Credit to Team CoFH for the random pitch generator, see their code below
 				// https://github.com/CoFH/ThermalFoundation/blob/1.12/src/main/java/cofh/thermalfoundation/item/tome/ItemTomeExperience.java#L268
-				// This is a reasonable use of their "Copy portions of this code for use in other projects." clause.
-				player.getWorld().playSound(player.getLocation(), Sound.ENTITY_EXPERIENCE_ORB_PICKUP, 0.1F, (random.nextFloat() - random.nextFloat()) * 0.35f + 0.9f);
+				// This is a reasonable use of their "Copy portions of this code for use in
+				// other projects." clause.
+				player.getWorld().playSound(player.getLocation(), Sound.ENTITY_EXPERIENCE_ORB_PICKUP, 0.1F,
+						(random.nextFloat() - random.nextFloat()) * 0.35f + 0.9f);
 				event.setExperience(0);
 				bottle.teleport(player);
 			}
 		}
 	}
 
-	@EventHandler(priority=EventPriority.HIGHEST)
+	@EventHandler(priority = EventPriority.HIGHEST)
 	public void onEmeraldExp(PlayerInteractEvent event) {
 		// If emerald crafting is not enabled, back out
 		if (!this.emeraldCrafting) {
@@ -426,11 +454,11 @@ public class OldEnchanting extends JavaPlugin implements Listener {
 		}
 		// If the action is not a right click, back out
 		switch (event.getAction()) {
-			case RIGHT_CLICK_AIR:
-			case RIGHT_CLICK_BLOCK:
-				break;
-			default:
-				return;
+		case RIGHT_CLICK_AIR:
+		case RIGHT_CLICK_BLOCK:
+			break;
+		default:
+			return;
 		}
 		// If the item is not an emerald, back out
 		Player player = event.getPlayer();
@@ -455,8 +483,7 @@ public class OldEnchanting extends JavaPlugin implements Listener {
 		int experience = 0;
 		if (this.constantBottleExp) {
 			experience = this.expPerBottle * 9;
-		}
-		else {
+		} else {
 			// Simulate nine thrown bottles, which drop between 3-11 experience
 			// https://minecraft.gamepedia.com/Bottle_o%27_Enchanting
 			for (int i = 0; i < 9; i++) {
@@ -467,14 +494,13 @@ public class OldEnchanting extends JavaPlugin implements Listener {
 		player.giveExp(experience);
 		if (amount == 1) {
 			inventory.setItemInMainHand(null);
-		}
-		else {
+		} else {
 			held.setAmount(--amount);
 			inventory.setItemInMainHand(held);
 		}
 	}
 
-	@EventHandler(priority=EventPriority.HIGHEST)
+	@EventHandler(priority = EventPriority.HIGHEST)
 	public void onPlayerExpRecovery(PlayerInteractEvent event) {
 		// If exp recovery is not enabled, back out
 		if (!this.allowExpRecovery) {
@@ -513,7 +539,7 @@ public class OldEnchanting extends JavaPlugin implements Listener {
 		createExpBottles(player, totalExp);
 	}
 
-	@EventHandler(priority=EventPriority.HIGHEST)
+	@EventHandler(priority = EventPriority.HIGHEST)
 	public void onPrepareBookEnchant(PrepareItemEnchantEvent event) {
 		// If creating enchanted books is enabled, back out
 		if (!this.disableEnchantedBookCreation) {
@@ -531,7 +557,7 @@ public class OldEnchanting extends JavaPlugin implements Listener {
 		event.setCancelled(true);
 	}
 
-	@EventHandler(priority=EventPriority.HIGHEST)
+	@EventHandler(priority = EventPriority.HIGHEST)
 	public void onPrepareBookUsage(PrepareAnvilEvent event) {
 		// If creating enchanted books is enabled, back out
 		if (!this.disableEnchantedBookUsage) {
@@ -560,12 +586,15 @@ public class OldEnchanting extends JavaPlugin implements Listener {
 		ContainerEnchantTable table = (ContainerEnchantTable) view.getHandle();
 		// If randomise enchants is enabled, randomise the offers
 		if (this.randomiseEnchants) {
-			//TODO Fix randomize enchants
-			//table.f = random.nextInt();
+			try {
+				tableRandomField.set(table, random);
+			} catch (IllegalArgumentException | IllegalAccessException e) {
+				e.printStackTrace();
+			}
 		}
 	}
 
-	@EventHandler(priority=EventPriority.HIGHEST)
+	@EventHandler(priority = EventPriority.HIGHEST)
 	public void onAnvilRepair(PrepareAnvilEvent event) {
 		// If infinite repair is not enabled, back out
 		if (!this.infiniteRepair) {
@@ -575,11 +604,9 @@ public class OldEnchanting extends JavaPlugin implements Listener {
 		ItemStack result = event.getResult();
 		if (result == null) {
 			return;
-		}
-		else if (result.getType() == Material.AIR) {
+		} else if (result.getType() == Material.AIR) {
 			return;
-		}
-		else if (result.getAmount() <= 0) {
+		} else if (result.getAmount() <= 0) {
 			return;
 		}
 		// Attempt to create a CraftItemStack, if it failed, back out
@@ -597,7 +624,7 @@ public class OldEnchanting extends JavaPlugin implements Listener {
 		event.setResult(CraftItemStack.asBukkitCopy(craftItem));
 	}
 
-	@EventHandler(priority=EventPriority.HIGHEST)
+	@EventHandler(priority = EventPriority.HIGHEST)
 	public void onEnchantItem(EnchantItemEvent event) {
 		Player player = event.getEnchanter();
 		// Determine what the player's new level will be after spending their levels
@@ -612,9 +639,11 @@ public class OldEnchanting extends JavaPlugin implements Listener {
 		}
 	}
 
-	// TODO: This function causes weirdness when you place Lapis Lazuli in the item to enchant slot. It should be
-	//       modified to only cancel the event if items are being added to or removed from the consumable slot.
-	@EventHandler(priority=EventPriority.HIGHEST)
+	// TODO: This function causes weirdness when you place Lapis Lazuli in the item
+	// to enchant slot. It should be
+	// modified to only cancel the event if items are being added to or removed from
+	// the consumable slot.
+	@EventHandler(priority = EventPriority.HIGHEST)
 	public void onInventoryClick(InventoryClickEvent event) {
 		// If the inventory is creative, back out
 		if (event instanceof InventoryCreativeEvent) {
@@ -638,7 +667,7 @@ public class OldEnchanting extends JavaPlugin implements Listener {
 		event.setCancelled(true);
 	}
 
-	@EventHandler(priority=EventPriority.HIGHEST)
+	@EventHandler(priority = EventPriority.HIGHEST)
 	public void onOpenEnchantingTable(InventoryOpenEvent event) {
 		// If fillLapis is not enabled, back out
 		if (!this.fillLapis) {
@@ -653,7 +682,7 @@ public class OldEnchanting extends JavaPlugin implements Listener {
 		event.getInventory().setItem(1, lapis.clone());
 	}
 
-	@EventHandler(priority=EventPriority.HIGHEST)
+	@EventHandler(priority = EventPriority.HIGHEST)
 	public void onCloseEnchantingTable(InventoryCloseEvent event) {
 		// If fillLapis is not enabled, back out
 		if (!this.fillLapis) {
@@ -668,7 +697,7 @@ public class OldEnchanting extends JavaPlugin implements Listener {
 		inventory.setItem(1, null);
 	}
 
-	@EventHandler(priority=EventPriority.HIGHEST)
+	@EventHandler(priority = EventPriority.HIGHEST)
 	public void onBreakEnchantingTable(BlockBreakEvent event) {
 		// If fillLapis is not enabled, back out
 		if (!this.fillLapis) {
@@ -692,12 +721,20 @@ public class OldEnchanting extends JavaPlugin implements Listener {
 		float progress = player.getExp();
 		float a = 1f, b = 6f, c = 0f, x = 2f, y = 7f;
 		if (currentLevel > 16 && currentLevel <= 31) {
-			a = 2.5f; b = -40.5f; c = 360f; x = 5f; y = -38f;
+			a = 2.5f;
+			b = -40.5f;
+			c = 360f;
+			x = 5f;
+			y = -38f;
+		} else if (currentLevel >= 32) {
+			a = 4.5f;
+			b = -162.5f;
+			c = 2220f;
+			x = 9f;
+			y = -158f;
 		}
-		else if(currentLevel >= 32) {
-			a = 4.5f; b = -162.5f; c = 2220f; x = 9f; y = -158f;
-		}
-		return (int) Math.floor(a * currentLevel * currentLevel + b * currentLevel + c + progress * (x * currentLevel + y));
+		return (int) Math
+				.floor(a * currentLevel * currentLevel + b * currentLevel + c + progress * (x * currentLevel + y));
 	}
 
 	private void createExpBottles(Player player, int totalExp) {
@@ -705,7 +742,8 @@ public class OldEnchanting extends JavaPlugin implements Listener {
 		int bottles = inv.getAmount(new ItemStack(Material.GLASS_BOTTLE));
 		int xpavailable = totalExp / this.expPerBottle;
 		int remove = Math.min(bottles, xpavailable);
-		if (remove == 0) return;
+		if (remove == 0)
+			return;
 		boolean noSpace = false;
 		int bottleCount = 0;
 		ItemMap removeMap = new ItemMap();
@@ -720,8 +758,7 @@ public class OldEnchanting extends JavaPlugin implements Listener {
 				player.getInventory().addItem(is);
 				noSpace = true;
 				break;
-			}
-			else {
+			} else {
 				bottleCount += initialAmount;
 			}
 		}
@@ -730,7 +767,7 @@ public class OldEnchanting extends JavaPlugin implements Listener {
 			player.setLevel(0);
 			player.setExp(0);
 			player.giveExp(endXP);
-			player.sendMessage(ChatColor.GREEN + "Created " + bottleCount +  " XP bottles.");
+			player.sendMessage(ChatColor.GREEN + "Created " + bottleCount + " XP bottles.");
 		}
 		if (noSpace) {
 			player.sendMessage(ChatColor.RED + "Not enough space in inventory for all XP bottles.");
