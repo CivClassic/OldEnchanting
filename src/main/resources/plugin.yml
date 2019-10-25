@@ -3,3 +3,4 @@ main: ${project.groupId}.${project.artifactId}
 version: ${project.version}
 authors: [biggestnerd, Protonull]
 depend: [ProtocolLib]
+api-version: 1.14
