@@ -1,4 +1,4 @@
-package main.java.com.civclassic.oldenchanting;
+package com.civclassic.oldenchanting;
 
 import java.security.SecureRandom;
 import java.util.HashMap;
@@ -118,6 +118,7 @@ public class OldEnchanting extends JavaPlugin implements Listener {
 				ProtocolLibrary.getProtocolManager().removePacketListener(this.hideEnchantsAdapter);
 			}
 			this.hideEnchantsAdapter = new PacketAdapter(this, PacketType.Play.Server.WINDOW_DATA) {
+				@Override
 				public void onPacketSending(PacketEvent event) {
 					PacketContainer packet = event.getPacket();
 					int property = packet.getIntegers().read(1);
@@ -687,7 +688,7 @@ public class OldEnchanting extends JavaPlugin implements Listener {
 	}
 
 	private int computeCurrentXP(Player player) {
-		float currentLevel = (float) player.getLevel();
+		float currentLevel = player.getLevel();
 		float progress = player.getExp();
 		float a = 1f, b = 6f, c = 0f, x = 2f, y = 7f;
 		if (currentLevel > 16 && currentLevel <= 31) {
