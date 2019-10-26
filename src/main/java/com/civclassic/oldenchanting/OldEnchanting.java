@@ -74,7 +74,7 @@ public class OldEnchanting extends JavaPlugin implements Listener {
 
 	private static final Random random = new SecureRandom();
 
-	private static final ItemStack lapis = new ItemStack(Material.INK_SAC, 64);
+	private static final ItemStack lapis = new ItemStack(Material.LAPIS_LAZULI, 64);
 	private static final ItemStack emerald = new ItemStack(Material.EMERALD, 1);
 	private ShapelessRecipe emeraldToExp;
 	private ShapedRecipe expToEmerald;
