@@ -629,10 +629,9 @@ public class OldEnchanting extends JavaPlugin implements Listener {
 		Player player = event.getEnchanter();
 		// Determine what the player's new level will be after spending their levels
 		int newPlayerLevel = Math.max(0, player.getLevel() - event.getExpLevelCost() - event.whichButton());
+		int levelsSpent = player.getLevel() - newPlayerLevel;
 		// Prevent double spending
-		event.setExpLevelCost(0);
-		// Spend the player's levels
-		Bukkit.getScheduler().scheduleSyncDelayedTask(this, () -> player.setLevel(newPlayerLevel));
+		event.setExpLevelCost(levelsSpent);
 		// And refill the Lapis Lazuli
 		if (this.fillLapis) {
 			event.getInventory().setItem(1, lapis.clone());
