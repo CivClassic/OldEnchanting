@@ -1,13 +1,18 @@
 package com.civclassic.oldenchanting;
 
+import com.comphenix.protocol.PacketType;
+import com.comphenix.protocol.ProtocolLibrary;
+import com.comphenix.protocol.events.PacketAdapter;
+import com.comphenix.protocol.events.PacketContainer;
+import com.comphenix.protocol.events.PacketEvent;
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
 import java.security.SecureRandom;
 import java.util.HashMap;
-import java.util.Iterator;
 import java.util.Map;
 import java.util.Random;
-
+import net.md_5.bungee.api.ChatColor;
+import net.minecraft.server.v1_14_R1.ContainerEnchantTable;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
@@ -16,7 +21,6 @@ import org.bukkit.block.Block;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.craftbukkit.v1_14_R1.inventory.CraftInventoryView;
-import org.bukkit.craftbukkit.v1_14_R1.inventory.CraftItemStack;
 import org.bukkit.enchantments.Enchantment;
 import org.bukkit.entity.EntityType;
 import org.bukkit.entity.HumanEntity;
@@ -25,7 +29,6 @@ import org.bukkit.entity.Player;
 import org.bukkit.entity.ThrownExpBottle;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
-import org.bukkit.event.HandlerList;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.Action;
 import org.bukkit.event.block.BlockBreakEvent;
@@ -52,55 +55,28 @@ import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.Merchant;
 import org.bukkit.inventory.MerchantRecipe;
 import org.bukkit.inventory.PlayerInventory;
-import org.bukkit.inventory.Recipe;
 import org.bukkit.inventory.ShapedRecipe;
 import org.bukkit.inventory.ShapelessRecipe;
 import org.bukkit.inventory.meta.ItemMeta;
-import org.bukkit.plugin.Plugin;
-import org.bukkit.plugin.java.JavaPlugin;
+import org.bukkit.inventory.meta.Repairable;
 import org.bukkit.projectiles.ProjectileSource;
-
-import com.comphenix.protocol.PacketType;
-import com.comphenix.protocol.ProtocolLibrary;
-import com.comphenix.protocol.events.PacketAdapter;
-import com.comphenix.protocol.events.PacketContainer;
-import com.comphenix.protocol.events.PacketEvent;
-
-import net.md_5.bungee.api.ChatColor;
-import net.minecraft.server.v1_14_R1.ContainerEnchantTable;
+import vg.civcraft.mc.civmodcore.ACivMod;
+import vg.civcraft.mc.civmodcore.api.BlockAPI;
+import vg.civcraft.mc.civmodcore.api.EntityAPI;
+import vg.civcraft.mc.civmodcore.api.ItemAPI;
+import vg.civcraft.mc.civmodcore.api.RecipeAPI;
 import vg.civcraft.mc.civmodcore.itemHandling.ItemMap;
+import vg.civcraft.mc.civmodcore.util.NullCoalescing;
 
-public class OldEnchanting extends JavaPlugin implements Listener {
+public class OldEnchanting extends ACivMod implements Listener {
 
-	private static final Random random = new SecureRandom();
+	private static final Random RANDOM = new SecureRandom();
 
-	private static final ItemStack lapis = new ItemStack(Material.LAPIS_LAZULI, 64);
-	private static final ItemStack emerald = new ItemStack(Material.EMERALD, 1);
-	private ShapelessRecipe emeraldToExp;
-	private ShapedRecipe expToEmerald;
-	
+	private static final ItemStack LAPIS_ITEM = new ItemStack(Material.LAPIS_LAZULI, 64);
+
+	private static final ItemStack EMERALD_ITEM = new ItemStack(Material.EMERALD, 1);
+
 	private static Field tableRandomField;
-
-	private PacketAdapter hideEnchantsAdapter;
-
-	private boolean hideEnchants;
-	private boolean fillLapis;
-	private boolean randomiseEnchants;
-	private double experienceModifier;
-	private double lootModifier;
-	private boolean emeraldCrafting;
-	private boolean emeraldLeveling;
-	private boolean disableGrindExp;
-	private boolean preventOrbExp;
-	private boolean directBottleExp;
-	private boolean infiniteRepair;
-	private int maxRepairCost;
-	private boolean constantBottleExp;
-	private int expPerBottle;
-	private boolean allowExpRecovery;
-	private boolean disableEnchantedBookCreation;
-	private boolean disableEnchantedBookUsage;
-	private Map<EntityType, Double> entityExpDropModifiers;
 
 	static {
 		try {
@@ -110,72 +86,112 @@ public class OldEnchanting extends JavaPlugin implements Listener {
 			Field modifiersField = Field.class.getDeclaredField("modifiers");
 			modifiersField.setAccessible(true);
 			modifiersField.setInt(tableRandomField, tableRandomField.getModifiers() & ~Modifier.FINAL);
-		} catch (IllegalArgumentException | IllegalAccessException | NoSuchFieldException | SecurityException e) {
+		}
+		catch (IllegalArgumentException | IllegalAccessException | NoSuchFieldException | SecurityException e) {
 			e.printStackTrace();
 		}
 	}
 
+	private ShapelessRecipe emeraldToExp;
+
+	private ShapedRecipe expToEmerald;
+
+	private PacketAdapter hideEnchantsAdapter;
+
+	private boolean hideEnchants;
+
+	private boolean fillLapis;
+
+	private boolean randomiseEnchants;
+
+	private boolean fixEnchantCosts;
+
+	private double experienceModifier;
+
+	private double lootModifier;
+
+	private boolean emeraldCrafting;
+
+	private boolean emeraldLeveling;
+
+	private boolean disableGrindExp;
+
+	private boolean preventOrbExp;
+
+	private boolean directBottleExp;
+
+	private boolean infiniteRepair;
+
+	private int maxRepairCost;
+
+	private boolean constantBottleExp;
+
+	private int expPerBottle;
+
+	private boolean allowExpRecovery;
+
+	private boolean disableEnchantedBookCreation;
+
+	private boolean disableEnchantedBookUsage;
+
+	private final Map<EntityType, Double> entityExpDropModifiers = new HashMap<>();
+
 	@Override
 	public void onEnable() {
+		this.useNewCommandHandler = false;
+		super.onEnable();
 		saveDefaultConfig();
 		FileConfiguration config = getConfig();
 		// Recipe that crafts Bottles o' Enchanting from Emeralds
-		emeraldToExp = new ShapelessRecipe(new NamespacedKey(this, "emeraldToBottle"), new ItemStack(Material.EXPERIENCE_BOTTLE, 9));
-		emeraldToExp.addIngredient(Material.EMERALD);
+		this.emeraldToExp = new ShapelessRecipe(new NamespacedKey(this, "emeraldToBottle"),
+				new ItemStack(Material.EXPERIENCE_BOTTLE, 9));
+		this.emeraldToExp.addIngredient(Material.EMERALD);
 		// Recipe that crafts Emeralds from Bottles o' Enchanting
-		expToEmerald = new ShapedRecipe(new NamespacedKey(this, "bottleToEmerald"), emerald);
-		expToEmerald.shape("xxx", "xxx", "xxx");
-		expToEmerald.setIngredient('x', Material.EXPERIENCE_BOTTLE);
+		this.expToEmerald = new ShapedRecipe(new NamespacedKey(this, "bottleToEmerald"), EMERALD_ITEM);
+		this.expToEmerald.shape("xxx", "xxx", "xxx");
+		this.expToEmerald.setIngredient('x', Material.EXPERIENCE_BOTTLE);
 		// Hides what enchantment will be granted within the Enchanting Table GUI
 		this.hideEnchants = config.getBoolean("hide_enchants", true);
 		if (this.hideEnchants) {
-			if (this.hideEnchantsAdapter != null) {
-				ProtocolLibrary.getProtocolManager().removePacketListener(this.hideEnchantsAdapter);
-			}
 			this.hideEnchantsAdapter = new PacketAdapter(this, PacketType.Play.Server.WINDOW_DATA) {
 				@Override
 				public void onPacketSending(PacketEvent event) {
 					PacketContainer packet = event.getPacket();
 					int property = packet.getIntegers().read(1);
 					switch (property) {
-					case 3:
-					case 4:
-					case 5:
-					case 6:
-						packet.getIntegers().write(2, -1);
+						case 3:
+						case 4:
+						case 5:
+						case 6:
+							packet.getIntegers().write(2, -1);
 					}
 				}
 			};
 			ProtocolLibrary.getProtocolManager().addPacketListener(this.hideEnchantsAdapter);
 		}
-		// Automatically fills the consumable slot with the Enchanting Table GUI with
-		// Lapis Lazuli
+		// Automatically fills the consumable slot with the Enchanting Table GUI with Lapis Lazuli
 		// NOTE: The Lapis Lazuli cannot be removed by the player
 		this.fillLapis = config.getBoolean("fill_lapis", true);
 		if (this.fillLapis) {
-			// Puts Lapis Lazuli in Enchanting Table GUIs if any are active which may happen
-			// during a /reload
+			// Puts Lapis Lazuli in Enchanting Table GUIs if any are active which may happen during a /reload
 			for (Player player : Bukkit.getOnlinePlayers()) {
 				InventoryView inventory = player.getOpenInventory();
-				if (inventory == null) {
-					continue;
-				}
 				if (inventory.getType() != InventoryType.ENCHANTING) {
 					continue;
 				}
-				inventory.setItem(1, lapis.clone());
+				inventory.setItem(1, LAPIS_ITEM.clone());
 			}
 		}
-		// Randomises the enchantment offers each time the item is placed in an
-		// Enchanting Table
+		// Randomises the enchantment offers each time the item is placed in an Enchanting Table
 		this.randomiseEnchants = config.getBoolean("randomise_enchants", config.getBoolean("randomize_enchants", true));
+		// Enables older, more expensive enchanetments costs where good enchantments cost 30 levels.
+		this.fixEnchantCosts = config.getBoolean("fix_enchantment_costs", true);
 		// Experience modifier, all experience drops will be multiplied by this
 		// NOTE: Does not apply to player exp
 		// NOTE: Modifier must be zero or greater
 		this.experienceModifier = config.getDouble("experience_modifier", config.getDouble("xpmod", 0.2d));
 		if (this.experienceModifier < 0.0d) {
-			Bukkit.getLogger()
-					.warning("Experience modifier [" + this.experienceModifier + "] is unsupported, defaulting to 0.2");
+			warning("Experience modifier [" + this.experienceModifier + "] is unsupported, defaulting to 0.2");
 			this.experienceModifier = 0.2d;
 		}
 		// Loot modifier, multiply the amount of exp dropped from each level of Looting
@@ -183,17 +199,16 @@ public class OldEnchanting extends JavaPlugin implements Listener {
 		// NOTE: Modifier must be zero or greater
 		this.lootModifier = config.getDouble("loot_modifier", config.getDouble("loot_mult", 1.5d));
 		if (this.lootModifier < 0.0d) {
-			Bukkit.getLogger().warning("Loot modifier [" + this.lootModifier + "] is unsupported, defaulting to 1.5");
+			warning("Loot modifier [" + this.lootModifier + "] is unsupported, defaulting to 1.5");
 			this.lootModifier = 1.5d;
 		}
 		// Enables xp bottles to be crafted from emeralds and vice versa
 		this.emeraldCrafting = config.getBoolean("emerald_crafting", true);
 		if (this.emeraldCrafting) {
-			getServer().addRecipe(emeraldToExp);
-			getServer().addRecipe(expToEmerald);
+			RecipeAPI.registerRecipe(this.emeraldToExp);
+			RecipeAPI.registerRecipe(this.expToEmerald);
 		}
-		// Enables gaining xp from emeralds directly without needing to craft and use xp
-		// bottles if emeraldCrafting is enabled
+		// Enables gaining xp from emeralds without needing to craft and use xp bottles, if emeraldCrafting is enabled
 		this.emeraldLeveling = config.getBoolean("emerald_leveling", true);
 		// Disables exp from mobs, fishing, mining, breeding, furnace extracting, etc
 		this.disableGrindExp = config.getBoolean("disable_grind_exp", true);
@@ -215,72 +230,60 @@ public class OldEnchanting extends JavaPlugin implements Listener {
 		// NOTE: Value must be two or greater
 		this.maxRepairCost = config.getInt("max_repair_cost", 33);
 		if (this.maxRepairCost < 2) {
-			Bukkit.getLogger()
-					.warning("Maximum repair cost [" + this.maxRepairCost + "] is unsupported, defaulting to 33");
+			warning("Maximum repair cost [" + this.maxRepairCost + "] is unsupported, defaulting to 33");
 			this.maxRepairCost = 33;
 		}
 		// Ensures that xp bottles produce a set amount of exp
 		this.constantBottleExp = config.getBoolean("constant_bottle_exp", true);
-		// Defines the set amount of xp that xp bottles will produce if
-		// constantBottleEXP is enabled
+		// Defines the set amount of xp that xp bottles will produce if constantBottleEXP is enabled
 		// NOTE: Value must be a positive integer
 		this.expPerBottle = config.getInt("exp_per_bottle", 10);
 		if (this.expPerBottle <= 0) {
-			Bukkit.getLogger()
-					.warning("Experience per bottle [" + this.expPerBottle + "] is unsupported, defaulting to 10");
+			warning("Experience per bottle [" + this.expPerBottle + "] is unsupported, defaulting to 10");
 			this.expPerBottle = 10;
 		}
-		// Allows player's to store their levels in bottles if constantBottleEXP is
-		// enabled
+		// Allows player's to store their levels in bottles if constantBottleEXP is enabled
 		this.allowExpRecovery = config.getBoolean("allow_exp_recovery", true);
 		// Disallows players from creating enchanted books
 		this.disableEnchantedBookCreation = config.getBoolean("disable_enchanted_book_creation", true);
 		// Disallows players from using enchanted books
 		this.disableEnchantedBookUsage = config.getBoolean("disable_enchanted_book_usage", true);
-		// Modifies the exp drops for specific mob types, which will be used in lieu of
-		// experienceModifier
+		// Modifies the exp drops for specific mob types, which will be used in lieu of experienceModifier
 		// NOTE: Players have an implicit modifier of 1.0
 		// NOTE: NOTE: Modifiers must be zero or greater
-		this.entityExpDropModifiers = new HashMap<>();
+		this.entityExpDropModifiers.clear();
 		this.entityExpDropModifiers.put(EntityType.PLAYER, 1.0d);
 		ConfigurationSection entities = config.getConfigurationSection("entities");
 		if (entities != null) {
 			for (String key : entities.getKeys(false)) {
-				EntityType type;
-				try {
-					type = EntityType.valueOf(key);
-				} catch (IllegalArgumentException error) {
-					Bukkit.getLogger().warning("EntityType [" + key + "] does not exist, skipping.");
+				EntityType type = EntityAPI.getEntityType(key);
+				if (type == null) {
+					warning("EntityType [" + key + "] does not exist, skipping.");
 					continue;
 				}
 				double modifier = entities.getDouble(key, 1.0d);
 				if (modifier < 0.0d) {
-					Bukkit.getLogger().warning("Experience modifier [" + modifier + "] for [" + key
-							+ "] is unsupported, defaulting to 1.0");
+					warning("Experience modifier [" + modifier + "] for [" + key + "] is unsupported, defaulting to 1.0");
 					modifier = 1.0d;
 				}
 				this.entityExpDropModifiers.put(type, modifier);
 			}
 		}
 		// Start listening to events
-		getServer().getPluginManager().registerEvents(this, this);
+		registerListener(this);
 	}
 
 	@Override
 	public void onDisable() {
 		// Unregisters the hide enchantments adapter
 		if (this.hideEnchants) {
-			if (this.hideEnchantsAdapter != null) {
-				ProtocolLibrary.getProtocolManager().removePacketListener(this.hideEnchantsAdapter);
-			}
+			NullCoalescing.exists(this.hideEnchantsAdapter, (adapter) ->
+					ProtocolLibrary.getProtocolManager().removePacketListener(adapter));
 		}
 		// Remove the Lapis Lazuli from Enchanting Tables to prevent dupes
 		if (this.fillLapis) {
 			for (Player player : Bukkit.getOnlinePlayers()) {
 				InventoryView inventory = player.getOpenInventory();
-				if (inventory == null) {
-					continue;
-				}
 				if (inventory.getType() != InventoryType.ENCHANTING) {
 					continue;
 				}
@@ -289,21 +292,12 @@ public class OldEnchanting extends JavaPlugin implements Listener {
 		}
 		// Remove the emerald crafting recipes
 		if (this.emeraldCrafting) {
-			Iterator<Recipe> recipes = getServer().recipeIterator();
-			while (recipes.hasNext()) {
-				Recipe current = recipes.next();
-				if (current == emeraldToExp || current == expToEmerald) {
-					recipes.remove();
-				}
-			}
+			RecipeAPI.removeRecipe(this.emeraldToExp);
+			RecipeAPI.removeRecipe(this.expToEmerald);
 		}
 		// Clear our entity experience modifiers
 		this.entityExpDropModifiers.clear();
-		// Clear the event listeners from this plugin
-		// NOTE: It's cast to Plugin because this plugin extends Plugin but also
-		// implements
-		// Listener, so we need to make this call unambiguous. Try it for yourself.
-		HandlerList.unregisterAll((Plugin) this);
+		super.onDisable();
 	}
 
 	@EventHandler(priority = EventPriority.HIGHEST)
@@ -331,9 +325,9 @@ public class OldEnchanting extends JavaPlugin implements Listener {
 			Player killer = entity.getKiller();
 			if (killer != null) {
 				ItemStack held = killer.getInventory().getItemInMainHand();
-				if (held != null && held.hasItemMeta()) {
+				if (ItemAPI.isValidItem(held) && held.hasItemMeta()) {
 					ItemMeta meta = held.getItemMeta();
-					if (meta.hasEnchant(Enchantment.LOOT_BONUS_MOBS)) {
+					if (meta != null && meta.hasEnchant(Enchantment.LOOT_BONUS_MOBS)) {
 						double modifier = this.lootModifier * meta.getEnchantLevel(Enchantment.LOOT_BONUS_MOBS);
 						experience = applyModifier(experience, modifier);
 					}
@@ -435,7 +429,7 @@ public class OldEnchanting extends JavaPlugin implements Listener {
 				// This is a reasonable use of their "Copy portions of this code for use in
 				// other projects." clause.
 				player.getWorld().playSound(player.getLocation(), Sound.ENTITY_EXPERIENCE_ORB_PICKUP, 0.1F,
-						(random.nextFloat() - random.nextFloat()) * 0.35f + 0.9f);
+						(RANDOM.nextFloat() - RANDOM.nextFloat()) * 0.35f + 0.9f);
 				event.setExperience(0);
 				bottle.teleport(player);
 			}
@@ -454,17 +448,17 @@ public class OldEnchanting extends JavaPlugin implements Listener {
 		}
 		// If the action is not a right click, back out
 		switch (event.getAction()) {
-		case RIGHT_CLICK_AIR:
-		case RIGHT_CLICK_BLOCK:
-			break;
-		default:
-			return;
+			case RIGHT_CLICK_AIR:
+			case RIGHT_CLICK_BLOCK:
+				break;
+			default:
+				return;
 		}
 		// If the item is not an emerald, back out
 		Player player = event.getPlayer();
 		PlayerInventory inventory = player.getInventory();
 		ItemStack held = inventory.getItemInMainHand();
-		if (held == null || !held.isSimilar(emerald)) {
+		if (ItemAPI.isValidItem(held) || !held.isSimilar(EMERALD_ITEM)) {
 			return;
 		}
 		// If the item is lored, it's probably a custom item, back out
@@ -483,18 +477,20 @@ public class OldEnchanting extends JavaPlugin implements Listener {
 		int experience = 0;
 		if (this.constantBottleExp) {
 			experience = this.expPerBottle * 9;
-		} else {
+		}
+		else {
 			// Simulate nine thrown bottles, which drop between 3-11 experience
 			// https://minecraft.gamepedia.com/Bottle_o%27_Enchanting
 			for (int i = 0; i < 9; i++) {
-				experience += random.nextInt(11 - 3 + 1) + 3;
+				experience += RANDOM.nextInt(11 - 3 + 1) + 3;
 			}
 		}
 		// Apply the exp to the player at the cost of an emerald
 		player.giveExp(experience);
 		if (amount == 1) {
 			inventory.setItemInMainHand(null);
-		} else {
+		}
+		else {
 			held.setAmount(--amount);
 			inventory.setItemInMainHand(held);
 		}
@@ -514,12 +510,11 @@ public class OldEnchanting extends JavaPlugin implements Listener {
 		if (event.getAction() != Action.LEFT_CLICK_BLOCK) {
 			return;
 		}
-		// If the action somehow doesn't have a block, back out
-		if (!event.hasBlock()) {
-			return;
-		}
 		// If the block being punched isn't an Enchanting Table, back out
 		Block block = event.getClickedBlock();
+		if (!BlockAPI.isValidBlock(block)) {
+			return;
+		}
 		if (block.getType() != Material.ENCHANTING_TABLE) {
 			return;
 		}
@@ -547,7 +542,7 @@ public class OldEnchanting extends JavaPlugin implements Listener {
 		}
 		// If the item is not a book, back out
 		ItemStack item = event.getItem();
-		if (item == null) {
+		if (!ItemAPI.isValidItem(item)) {
 			return;
 		}
 		if (item.getType() != Material.BOOK) {
@@ -580,15 +575,16 @@ public class OldEnchanting extends JavaPlugin implements Listener {
 		}
 	}
 
-	@EventHandler(priority=EventPriority.HIGHEST)
+	@EventHandler(priority = EventPriority.HIGHEST)
 	public void onPrepareItemEnchant(PrepareItemEnchantEvent event) {
 		CraftInventoryView view = (CraftInventoryView) event.getView();
 		ContainerEnchantTable table = (ContainerEnchantTable) view.getHandle();
 		// If randomise enchants is enabled, randomise the offers
 		if (this.randomiseEnchants) {
 			try {
-				tableRandomField.set(table, random);
-			} catch (IllegalArgumentException | IllegalAccessException e) {
+				tableRandomField.set(table, RANDOM);
+			}
+			catch (IllegalArgumentException | IllegalAccessException e) {
 				e.printStackTrace();
 			}
 		}
@@ -602,39 +598,39 @@ public class OldEnchanting extends JavaPlugin implements Listener {
 		}
 		// If the offer is not valid, back out
 		ItemStack result = event.getResult();
-		if (result == null) {
-			return;
-		} else if (result.getType() == Material.AIR) {
-			return;
-		} else if (result.getAmount() <= 0) {
+		if (!ItemAPI.isValidItem(result)) {
 			return;
 		}
-		// Attempt to create a CraftItemStack, if it failed, back out
-		net.minecraft.server.v1_14_R1.ItemStack craftItem = CraftItemStack.asNMSCopy(result);
-		if (craftItem == null) {
-			return;
-		}
-		// If the repair cost of the item is less than the maximum repair cost, back out
-		int newRepairCost = this.maxRepairCost - 2;
-		if (craftItem.getRepairCost() < newRepairCost) {
-			return;
-		}
-		// Otherwise set the new repair cost and set the result
-		craftItem.setRepairCost(newRepairCost);
-		event.setResult(CraftItemStack.asBukkitCopy(craftItem));
+		ItemAPI.handleItemMeta(result, (Repairable meta) -> {
+			int newRepairCost = this.maxRepairCost - 2;
+			if (meta.getRepairCost() < newRepairCost) {
+				return false;
+			}
+			meta.setRepairCost(newRepairCost);
+			return true;
+		});
+		event.setResult(result);
 	}
 
-	@EventHandler(priority = EventPriority.HIGHEST)
+	@EventHandler(priority = EventPriority.MONITOR)
 	public void onEnchantItem(EnchantItemEvent event) {
-		Player player = event.getEnchanter();
-		// Determine what the player's new level will be after spending their levels
-		int newPlayerLevel = Math.max(0, player.getLevel() - event.getExpLevelCost() - event.whichButton());
-		int levelsSpent = player.getLevel() - newPlayerLevel;
-		// Prevent double spending
-		event.setExpLevelCost(levelsSpent);
+		if (this.fixEnchantCosts) {
+			Player player = event.getEnchanter();
+			if (player.getLevel() < event.getExpLevelCost()) {
+				event.setCancelled(true);
+				return;
+			}
+			// The level cost of enchantments is always the button index + 1, assuming the server is Bukkit.
+			// And so if we want the enchantment to actually cost 30 levels as required by the ExpLevelCost, we need to
+			// make up for the difference with a manual level reduction of the remainder.
+			int bukkitLevelCost = event.whichButton() + 1;
+			int levelRemainder = event.getExpLevelCost() - bukkitLevelCost;
+			int newLevel = player.getLevel() - levelRemainder;
+			player.setLevel(newLevel);
+		}
 		// And refill the Lapis Lazuli
 		if (this.fillLapis) {
-			event.getInventory().setItem(1, lapis.clone());
+			event.getInventory().setItem(1, LAPIS_ITEM.clone());
 		}
 	}
 
@@ -659,7 +655,7 @@ public class OldEnchanting extends JavaPlugin implements Listener {
 		}
 		// If the current item is not Lapis Lazuli, back out
 		ItemStack currentItem = event.getCurrentItem();
-		if (currentItem == null || !currentItem.isSimilar(lapis)) {
+		if (currentItem == null || !currentItem.isSimilar(LAPIS_ITEM)) {
 			return;
 		}
 		// Otherwise prevent altering of the Lapis Lazuli
@@ -674,11 +670,11 @@ public class OldEnchanting extends JavaPlugin implements Listener {
 		}
 		// If the inventory is not that of an Enchanting Table, back out
 		Inventory inventory = event.getInventory();
-		if (inventory == null || inventory.getType() != InventoryType.ENCHANTING) {
+		if (inventory.getType() != InventoryType.ENCHANTING) {
 			return;
 		}
 		// Otherwise fill with Lapis Lazuli
-		event.getInventory().setItem(1, lapis.clone());
+		event.getInventory().setItem(1, LAPIS_ITEM.clone());
 	}
 
 	@EventHandler(priority = EventPriority.HIGHEST)
@@ -689,7 +685,7 @@ public class OldEnchanting extends JavaPlugin implements Listener {
 		}
 		// If the inventory is not that of an Enchanting Table, back out
 		Inventory inventory = event.getInventory();
-		if (inventory == null || inventory.getType() != InventoryType.ENCHANTING) {
+		if (inventory.getType() != InventoryType.ENCHANTING) {
 			return;
 		}
 		// Otherwise emtpy out Lapis Lazuli
@@ -708,7 +704,7 @@ public class OldEnchanting extends JavaPlugin implements Listener {
 			return;
 		}
 		// Remove Lapis Lazuli from the drops
-		block.getDrops().removeIf(drop -> drop.isSimilar(lapis));
+		block.getDrops().removeIf(drop -> drop.isSimilar(LAPIS_ITEM));
 	}
 
 	private int applyModifier(int experience, double modifier) {
@@ -725,7 +721,8 @@ public class OldEnchanting extends JavaPlugin implements Listener {
 			c = 360f;
 			x = 5f;
 			y = -38f;
-		} else if (currentLevel >= 32) {
+		}
+		else if (currentLevel >= 32) {
 			a = 4.5f;
 			b = -162.5f;
 			c = 2220f;
@@ -741,8 +738,9 @@ public class OldEnchanting extends JavaPlugin implements Listener {
 		int bottles = inv.getAmount(new ItemStack(Material.GLASS_BOTTLE));
 		int xpavailable = totalExp / this.expPerBottle;
 		int remove = Math.min(bottles, xpavailable);
-		if (remove == 0)
+		if (remove == 0) {
 			return;
+		}
 		boolean noSpace = false;
 		int bottleCount = 0;
 		ItemMap removeMap = new ItemMap();
@@ -757,7 +755,8 @@ public class OldEnchanting extends JavaPlugin implements Listener {
 				player.getInventory().addItem(is);
 				noSpace = true;
 				break;
-			} else {
+			}
+			else {
 				bottleCount += initialAmount;
 			}
 		}
