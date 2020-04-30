@@ -461,13 +461,6 @@ public class OldEnchanting extends ACivMod implements Listener {
 		if (!ItemAPI.isValidItem(held) || !held.isSimilar(EMERALD_ITEM)) {
 			return;
 		}
-		// If the item is lored, it's probably a custom item, back out
-		if (held.hasItemMeta()) {
-			ItemMeta meta = held.getItemMeta();
-			if (meta != null && meta.hasLore()) {
-				return;
-			}
-		}
 		// If the amount is unsupported, back out
 		int amount = held.getAmount();
 		if (amount <= 0) {
