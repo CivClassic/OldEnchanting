@@ -63,6 +63,7 @@ import org.bukkit.projectiles.ProjectileSource;
 import vg.civcraft.mc.civmodcore.ACivMod;
 import vg.civcraft.mc.civmodcore.api.BlockAPI;
 import vg.civcraft.mc.civmodcore.api.EntityAPI;
+import vg.civcraft.mc.civmodcore.api.InventoryAPI;
 import vg.civcraft.mc.civmodcore.api.ItemAPI;
 import vg.civcraft.mc.civmodcore.api.RecipeAPI;
 import vg.civcraft.mc.civmodcore.itemHandling.ItemMap;
@@ -647,12 +648,12 @@ public class OldEnchanting extends ACivMod implements Listener {
 		}
 		// If the inventory is not that of an Enchanting Table, back out
 		Inventory inventory = event.getClickedInventory();
-		if (inventory == null || inventory.getType() != InventoryType.ENCHANTING) {
+		if (!InventoryAPI.isValidInventory(inventory) || inventory.getType() != InventoryType.ENCHANTING) {
 			return;
 		}
 		// If the current item is not Lapis Lazuli, back out
 		ItemStack currentItem = event.getCurrentItem();
-		if (currentItem == null || !currentItem.isSimilar(LAPIS_ITEM)) {
+		if (!ItemAPI.isValidItem(currentItem) || !currentItem.isSimilar(LAPIS_ITEM)) {
 			return;
 		}
 		// Otherwise prevent altering of the Lapis Lazuli
