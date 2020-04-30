@@ -458,7 +458,7 @@ public class OldEnchanting extends ACivMod implements Listener {
 		Player player = event.getPlayer();
 		PlayerInventory inventory = player.getInventory();
 		ItemStack held = inventory.getItemInMainHand();
-		if (ItemAPI.isValidItem(held) || !held.isSimilar(EMERALD_ITEM)) {
+		if (!ItemAPI.isValidItem(held) || !held.isSimilar(EMERALD_ITEM)) {
 			return;
 		}
 		// If the item is lored, it's probably a custom item, back out
