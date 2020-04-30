@@ -436,7 +436,7 @@ public class OldEnchanting extends ACivMod implements Listener {
 		}
 	}
 
-	@EventHandler(priority = EventPriority.HIGHEST)
+	@EventHandler(priority = EventPriority.LOWEST)
 	public void onEmeraldExp(PlayerInteractEvent event) {
 		// If emerald crafting is not enabled, back out
 		if (!this.emeraldCrafting) {
@@ -487,6 +487,7 @@ public class OldEnchanting extends ACivMod implements Listener {
 			held.setAmount(--amount);
 			inventory.setItemInMainHand(held);
 		}
+		event.setCancelled(true); // Give the emerald leveling precedence
 	}
 
 	@EventHandler(priority = EventPriority.HIGHEST)
