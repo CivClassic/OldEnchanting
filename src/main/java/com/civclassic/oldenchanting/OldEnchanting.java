@@ -627,6 +627,9 @@ public class OldEnchanting extends ACivMod implements Listener {
 			int levelRemainder = event.getExpLevelCost() - bukkitLevelCost;
 			int newLevel = player.getLevel() - levelRemainder;
 			player.setLevel(newLevel);
+			// The exp level cost needs to be reduced to the remaining cost, otherwise Bukkit's enchantment process
+			// still expects you to have thirty levels on you.
+			event.setExpLevelCost(bukkitLevelCost);
 		}
 		// And refill the Lapis Lazuli
 		if (this.fillLapis) {
