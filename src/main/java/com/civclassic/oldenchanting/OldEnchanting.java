@@ -632,10 +632,8 @@ public class OldEnchanting extends ACivMod implements Listener {
 		}
 	}
 
-	// TODO: This function causes weirdness when you place Lapis Lazuli in the item
-	// to enchant slot. It should be
-	// modified to only cancel the event if items are being added to or removed from
-	// the consumable slot.
+	// TODO: This function causes weirdness when you place Lapis Lazuli in the item to enchant slot. It should be
+	//    modified to only cancel the event if items are being added to or removed from the consumable slot.
 	@EventHandler(priority = EventPriority.HIGHEST)
 	public void onInventoryClick(InventoryClickEvent event) {
 		// If the inventory is creative, back out
