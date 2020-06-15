@@ -63,6 +63,7 @@ import org.bukkit.projectiles.ProjectileSource;
 import vg.civcraft.mc.civmodcore.ACivMod;
 import vg.civcraft.mc.civmodcore.api.BlockAPI;
 import vg.civcraft.mc.civmodcore.api.EntityAPI;
+import vg.civcraft.mc.civmodcore.api.InventoryAPI;
 import vg.civcraft.mc.civmodcore.api.ItemAPI;
 import vg.civcraft.mc.civmodcore.api.RecipeAPI;
 import vg.civcraft.mc.civmodcore.itemHandling.ItemMap;
@@ -436,7 +437,7 @@ public class OldEnchanting extends ACivMod implements Listener {
 		}
 	}
 
-	@EventHandler(priority = EventPriority.HIGHEST)
+	@EventHandler(priority = EventPriority.LOWEST)
 	public void onEmeraldExp(PlayerInteractEvent event) {
 		// If emerald crafting is not enabled, back out
 		if (!this.emeraldCrafting) {
@@ -458,15 +459,8 @@ public class OldEnchanting extends ACivMod implements Listener {
 		Player player = event.getPlayer();
 		PlayerInventory inventory = player.getInventory();
 		ItemStack held = inventory.getItemInMainHand();
-		if (ItemAPI.isValidItem(held) || !held.isSimilar(EMERALD_ITEM)) {
+		if (!ItemAPI.isValidItem(held) || !held.isSimilar(EMERALD_ITEM)) {
 			return;
-		}
-		// If the item is lored, it's probably a custom item, back out
-		if (held.hasItemMeta()) {
-			ItemMeta meta = held.getItemMeta();
-			if (meta != null && meta.hasLore()) {
-				return;
-			}
 		}
 		// If the amount is unsupported, back out
 		int amount = held.getAmount();
@@ -494,6 +488,7 @@ public class OldEnchanting extends ACivMod implements Listener {
 			held.setAmount(--amount);
 			inventory.setItemInMainHand(held);
 		}
+		event.setCancelled(true); // Give the emerald leveling precedence
 	}
 
 	@EventHandler(priority = EventPriority.HIGHEST)
@@ -637,10 +632,8 @@ public class OldEnchanting extends ACivMod implements Listener {
 		}
 	}
 
-	// TODO: This function causes weirdness when you place Lapis Lazuli in the item
-	// to enchant slot. It should be
-	// modified to only cancel the event if items are being added to or removed from
-	// the consumable slot.
+	// TODO: This function causes weirdness when you place Lapis Lazuli in the item to enchant slot. It should be
+	//    modified to only cancel the event if items are being added to or removed from the consumable slot.
 	@EventHandler(priority = EventPriority.HIGHEST)
 	public void onInventoryClick(InventoryClickEvent event) {
 		// If the inventory is creative, back out
@@ -653,12 +646,12 @@ public class OldEnchanting extends ACivMod implements Listener {
 		}
 		// If the inventory is not that of an Enchanting Table, back out
 		Inventory inventory = event.getClickedInventory();
-		if (inventory == null || inventory.getType() != InventoryType.ENCHANTING) {
+		if (!InventoryAPI.isValidInventory(inventory) || inventory.getType() != InventoryType.ENCHANTING) {
 			return;
 		}
 		// If the current item is not Lapis Lazuli, back out
 		ItemStack currentItem = event.getCurrentItem();
-		if (currentItem == null || !currentItem.isSimilar(LAPIS_ITEM)) {
+		if (!ItemAPI.isValidItem(currentItem) || !currentItem.isSimilar(LAPIS_ITEM)) {
 			return;
 		}
 		// Otherwise prevent altering of the Lapis Lazuli
