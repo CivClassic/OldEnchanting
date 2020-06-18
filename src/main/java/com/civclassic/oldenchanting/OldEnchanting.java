@@ -157,14 +157,17 @@ public class OldEnchanting extends ACivMod implements Listener {
 			this.hideEnchantsAdapter = new PacketAdapter(this, PacketType.Play.Server.WINDOW_DATA) {
 				@Override
 				public void onPacketSending(PacketEvent event) {
-					PacketContainer packet = event.getPacket();
-					int property = packet.getIntegers().read(1);
-					switch (property) {
-						case 3:
-						case 4:
-						case 5:
-						case 6:
-							packet.getIntegers().write(2, -1);
+					InventoryType type = event.getPlayer().getOpenInventory().getType();
+					if (type == InventoryType.ENCHANTING) {
+						PacketContainer packet = event.getPacket();
+						int property = packet.getIntegers().read(1);
+						switch (property) {
+							case 3:
+							case 4:
+							case 5:
+							case 6:
+								packet.getIntegers().write(2, -1);
+						}
 					}
 				}
 			};
@@ -481,13 +484,8 @@ public class OldEnchanting extends ACivMod implements Listener {
 		}
 		// Apply the exp to the player at the cost of an emerald
 		player.giveExp(experience);
-		if (amount == 1) {
-			inventory.setItemInMainHand(null);
-		}
-		else {
-			held.setAmount(--amount);
-			inventory.setItemInMainHand(held);
-		}
+		held = ItemAPI.decrementItem(held);
+		inventory.setItemInMainHand(held);
 		event.setCancelled(true); // Give the emerald leveling precedence
 	}
 
